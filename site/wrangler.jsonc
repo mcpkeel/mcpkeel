@@ -1,0 +1,16 @@
+{
+  // Static site for mcpkeel.app, served by Cloudflare Workers static assets.
+  // Deploy from this folder with: npx wrangler deploy
+  "name": "mcpkeel-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "404-page"
+  },
+  // The zone mcpkeel.app is on this Cloudflare account, so deploying creates
+  // the DNS records and certificates for both hostnames.
+  "routes": [
+    { "pattern": "mcpkeel.app", "custom_domain": true },
+    { "pattern": "www.mcpkeel.app", "custom_domain": true }
+  ]
+}

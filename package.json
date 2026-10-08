@@ -1,0 +1,27 @@
+{
+  "name": "mcpkeel",
+  "version": "0.1.0",
+  "description": "The lockfile for MCP. Pin your MCP servers' tool definitions in mcp.lock and catch silent drift in CI.",
+  "keywords": ["mcp", "model-context-protocol", "lockfile", "security", "supply-chain", "drift", "prompt-injection", "ai-agents", "claude"],
+  "homepage": "https://mcpkeel.app",
+  "repository": { "type": "git", "url": "git+https://github.com/mcpkeel/mcpkeel.git" },
+  "bugs": { "url": "https://github.com/mcpkeel/mcpkeel/issues" },
+  "license": "MIT",
+  "author": "Gabriel",
+  "type": "module",
+  "bin": { "mcpkeel": "dist/cli.js" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
