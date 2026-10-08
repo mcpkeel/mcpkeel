@@ -25,4 +25,4 @@ const http = createServer(async (req, res) => {
     res.writeHead(404).end();
   }
 });
-http.listen(0, "127.0.0.1", () => console.log(http.address().port));
+http.listen(0, "127.0.0.1", () => console.log(String(http.address().port)));

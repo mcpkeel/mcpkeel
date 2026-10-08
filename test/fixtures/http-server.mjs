@@ -30,4 +30,4 @@ const http = createServer(async (req, res) => {
   await server.connect(transport);
   await transport.handleRequest(req, res, JSON.parse(raw));
 });
-http.listen(0, "127.0.0.1", () => console.log(http.address().port));
+http.listen(0, "127.0.0.1", () => console.log(String(http.address().port)));
