@@ -544,6 +544,23 @@ test("a review that could not run is listed as not checked, and the gate stays s
   assert.deepEqual(json.incomplete, [{ step: "review", reason: "Claude API returned 529: overloaded" }]);
 });
 
+test("a payload split between the description and a parameter is still caught", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "split" });
+  assert.equal(result.code, 1);
+  const changes = JSON.parse(result.stdout).changes;
+  // Each field alone looks ordinary.
+  assert.equal(changes.find((c) => c.kind === "tool.description.changed").severity, "high");
+  assert.equal(changes.find((c) => c.kind === "tool.param.added").flags, undefined);
+  // Read together, they ask for the issue body to be sent to an address.
+  const joined = changes.find((c) => c.kind === "tool.text.flagged");
+  assert.equal(joined.severity, "critical");
+  assert.equal(joined.subject, "tool create_issue");
+  assert.deepEqual(joined.flags.map((f) => f.id), ["exfiltration"]);
+  assert.match(joined.flags[0].label, /\(across fields\)$/);
+});
+
 function twoServers() {
   const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
   writeFileSync(

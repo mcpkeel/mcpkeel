@@ -303,6 +303,11 @@ export function newFlags(before: string | undefined, after: string | undefined):
 
 /** Every string that sits under a `description` or `title` key, at any depth. */
 export function collectSchemaText(schema: unknown): string {
+  return schemaStrings(schema).join("\n");
+}
+
+/** The strings `collectSchemaText` joins, one entry each. */
+export function schemaStrings(schema: unknown): string[] {
   const parts: string[] = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
@@ -318,7 +323,7 @@ export function collectSchemaText(schema: unknown): string {
     }
   };
   walk(schema);
-  return parts.join("\n");
+  return parts;
 }
 
 /**
