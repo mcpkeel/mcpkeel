@@ -1,0 +1,87 @@
+name: mcpkeel
+description: Check your MCP servers against mcp.lock, or open a pull request when what they send has changed.
+author: mcpkeel
+branding:
+  icon: anchor
+  color: blue
+
+inputs:
+  mode:
+    description: >-
+      "verify" fails the job when a server no longer matches mcp.lock.
+      "update-pr" accepts the new definitions on a branch and opens a pull request with the report,
+      so a change becomes a review instead of a red build.
+    default: verify
+  version:
+    description: The mcpkeel version to run from npm.
+    default: "0.2.0"
+  config:
+    description: Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json.
+    default: ""
+  lockfile:
+    description: Path to the lockfile.
+    default: mcp.lock
+  fail-on:
+    description: 'verify: the lowest severity that fails the job: critical, high, medium or low.'
+    default: low
+  explain:
+    description: >-
+      Have Claude read each changed text and say whether it is cosmetic, functional or adversarial.
+      Needs anthropic-api-key. Without a key the check still runs, on the built-in rules alone.
+    default: "false"
+  anthropic-api-key:
+    description: Claude API key for explain. It is given to mcpkeel only, never to the MCP servers it starts.
+    default: ""
+  model:
+    description: Model for explain. Defaults to mcpkeel's own default.
+    default: ""
+  probe:
+    description: 'verify: read each server again later in the session and under another client name.'
+    default: "false"
+  timeout:
+    description: Per-server timeout in seconds.
+    default: "30"
+  working-directory:
+    description: Directory that holds the MCP config and the lockfile.
+    default: "."
+  branch:
+    description: 'update-pr: the branch to push the updated lockfile to.'
+    default: mcpkeel/update-lock
+  base:
+    description: 'update-pr: the branch the pull request targets. Defaults to the branch the workflow runs on.'
+    default: ""
+  github-token:
+    description: 'update-pr: token used to push the branch and open the pull request. Needs contents and pull-requests write.'
+    default: ${{ github.token }}
+
+outputs:
+  drift:
+    description: '"true" when a server no longer matches the lockfile.'
+    value: ${{ steps.run.outputs.drift }}
+  pull-request:
+    description: 'update-pr: URL of the pull request that was opened or updated.'
+    value: ${{ steps.run.outputs.pull-request }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      # Inputs reach the script as environment variables, never as text pasted
+      # into the script, so an input value cannot become shell code.
+      env:
+        MCPKEEL_MODE: ${{ inputs.mode }}
+        MCPKEEL_VERSION: ${{ inputs.version }}
+        MCPKEEL_CONFIG: ${{ inputs.config }}
+        MCPKEEL_LOCKFILE: ${{ inputs.lockfile }}
+        MCPKEEL_FAIL_ON: ${{ inputs.fail-on }}
+        MCPKEEL_EXPLAIN: ${{ inputs.explain }}
+        MCPKEEL_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        MCPKEEL_REVIEW_MODEL: ${{ inputs.model }}
+        MCPKEEL_PROBE: ${{ inputs.probe }}
+        MCPKEEL_TIMEOUT: ${{ inputs.timeout }}
+        MCPKEEL_BRANCH: ${{ inputs.branch }}
+        MCPKEEL_BASE: ${{ inputs.base }}
+        MCPKEEL_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: bash "$GITHUB_ACTION_PATH/action/run.sh"

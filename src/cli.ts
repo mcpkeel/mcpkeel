@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
-import { atLeast, diffLockfiles, scanServer } from "./diff.js";
-import { DEFAULT_MODEL, explainChanges, reviewable, type Review } from "./explain.js";
+import { atLeast, crossServerNotes, diffEntries, diffLockfiles, scanServer } from "./diff.js";
 import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
-import { palette, plural, renderChange, summarize, summaryLine, type Palette } from "./report.js";
+import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
+import { DEFAULT_MODEL, applyReviews, claudeReviewer, reviewable } from "./review.js";
+import { visible } from "./scan.js";
 import { snapshotAll, type SnapshotResult } from "./snapshot.js";
 import { SEVERITIES, type Change, type Lockfile, type ServerEntry, type ServerSpec, type Severity } from "./types.js";
 
@@ -29,10 +30,20 @@ Options
   -l, --lockfile <path>   Lockfile to read and write (default: mcp.lock)
       --fail-on <level>   verify: lowest severity that fails the run:
                           critical, high, medium or low (default: low)
-      --explain           diff: ask Claude to assess the changed text for prompt
-                          injection. Needs ANTHROPIC_API_KEY. Sends only the
-                          changed definitions to the Claude API.
+      --explain           verify, diff: have Claude read each changed text and
+                          say whether it is cosmetic, functional or adversarial.
+                          Adversarial changes become critical. Cosmetic rewordings
+                          drop to low, but never when a built-in check fired.
+                          Needs ANTHROPIC_API_KEY. Sends only the changed
+                          definitions to the Claude API.
       --model <id>        Model for --explain (default: ${DEFAULT_MODEL})
+      --probe             init, verify, diff: read each server twice more. Once after
+                          five calls to a tool that does not exist, to catch servers
+                          that change their definitions partway through a session.
+                          Once under another client name, to catch servers that
+                          answer a checker differently from an agent.
+      --report <file>     verify, diff, update: also append a Markdown report to
+                          <file>, for pull request bodies and job summaries
       --force             init: overwrite an existing lockfile
       --timeout <secs>    Per-server timeout (default: 30)
       --json              Machine-readable output
@@ -53,6 +64,8 @@ interface Options {
   failOn: Severity;
   explain: boolean;
   model: string;
+  report?: string;
+  probe: boolean;
   force: boolean;
   timeoutMs: number;
   json: boolean;
@@ -73,6 +86,8 @@ async function main(argv: string[]): Promise<number> {
         "fail-on": { type: "string" },
         explain: { type: "boolean" },
         model: { type: "string" },
+        report: { type: "string" },
+        probe: { type: "boolean" },
         force: { type: "boolean" },
         timeout: { type: "string" },
         json: { type: "boolean" },
@@ -103,6 +118,8 @@ async function main(argv: string[]): Promise<number> {
     failOn,
     explain: Boolean(values.explain),
     model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
+    report: values.report ? resolve(cwd, values.report) : undefined,
+    probe: Boolean(values.probe),
     force: Boolean(values.force),
     timeoutMs: timeoutSecs * 1000,
     json: Boolean(values.json),
@@ -139,7 +156,7 @@ async function init(options: Options): Promise<number> {
   const { specs, results, configPath } = await snapshot(options);
   const failed = results.filter((r) => !r.ok);
   const lock = toLockfile(results);
-  const notes = collectNotes(specs, lock);
+  const notes = collectNotes(specs, lock, results);
 
   if (failed.length === 0) writeLockfile(options.lockfile, lock);
 
@@ -181,11 +198,25 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   const { results, configPath } = await snapshot(options);
   const failed = results.filter((r) => !r.ok);
   const changes = diffLockfiles(locked, toLockfile(results), new Set(failed.map((r) => r.name)));
-  const reviews = mode === "diff" && options.explain ? await review(changes, options) : undefined;
+  changes.push(...probeChanges(results));
+  sortChanges(changes);
+  // In verify, a review that cannot run leaves the stricter rule-based severities
+  // in place, so a missing key (a pull request from a fork, say) never loosens the gate.
+  const reviewError = options.explain ? await review(changes, options, mode === "verify") : undefined;
 
   const failing = changes.filter((change) => atLeast(change.severity, options.failOn));
   // A server that cannot be reached cannot be verified, so verify fails closed.
   const code = failed.length ? 2 : mode === "verify" && failing.length ? 1 : 0;
+
+  writeReport(options, {
+    heading: changes.length ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: no drift",
+    intro: changes.length
+      ? `What your MCP servers send today no longer matches ${codeName(rel(options, options.lockfile))}.`
+      : `Every MCP server matches ${codeName(rel(options, options.lockfile))}.`,
+    changes,
+    errors: errorList(results),
+    footer: reviewError ? `Review unavailable, so severities are rule-based only: ${reviewError}` : undefined,
+  });
 
   if (options.json) {
     return print(
@@ -197,8 +228,9 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
           lockfile: options.lockfile,
           summary: summarize(changes),
           servers: serverSummaries(results, changes),
-          changes: withReviews(changes, reviews),
+          changes,
           errors: errorList(results),
+          ...(options.explain ? { review: { available: reviewError === undefined, error: reviewError } } : {}),
         },
         null,
         2,
@@ -209,8 +241,12 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
 
   const { p } = options;
   const out: string[] = [p.dim(`config  ${rel(options, configPath)}`), p.dim(`lock    ${rel(options, options.lockfile)}`), ""];
-  out.push(...renderGroups(results, changes, reviews, p));
+  out.push(...renderGroups(results, changes, p));
   out.push("", ...footer(changes, failed.length, mode, options, failing.length));
+  if (reviewError) out.push(p.yellow(`Review unavailable, so severities are rule-based only: ${reviewError}`));
+  for (const result of results) {
+    if (result.ok && result.probeNote) out.push(p.yellow(`Probe incomplete: ${visible(result.name)} ${visible(result.probeNote)}`));
+  }
   return print(out.join("\n"), code);
 }
 
@@ -218,16 +254,21 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
   const before = readLockfile(resolve(options.cwd, oldPath));
   const after = readLockfile(resolve(options.cwd, newPath));
   const changes = diffLockfiles(before, after);
-  const reviews = options.explain ? await review(changes, options) : undefined;
+  if (options.explain) await review(changes, options, false);
+
+  writeReport(options, {
+    heading: changes.length ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: no changes",
+    changes,
+  });
 
   if (options.json) {
-    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes: withReviews(changes, reviews) }, null, 2));
+    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes }, null, 2));
   }
   const { p } = options;
   const out: string[] = [p.dim(`old  ${oldPath}`), p.dim(`new  ${newPath}`), ""];
   if (changes.length === 0) out.push(`${p.green("✓")} The two lockfiles pin the same definitions.`);
   else {
-    out.push(...renderChangesByServer(changes, reviews, p));
+    out.push(...renderChangesByServer(changes, p));
     out.push("", `${plural(changes.length, "change")}: ${summaryLine(changes)}.`);
   }
   return print(out.join("\n"));
@@ -256,6 +297,11 @@ async function update(options: Options, only: string[]): Promise<number> {
 
   const changes = previous ? diffLockfiles(previous, next, new Set(failed.map((r) => r.name))) : [];
   if (failed.length === 0) writeLockfile(options.lockfile, next);
+  writeReport(options, {
+    heading: changes.length ? `mcpkeel: accepted ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: lockfile already up to date",
+    changes,
+    errors: errorList(selected),
+  });
 
   if (options.json) {
     return print(
@@ -280,7 +326,7 @@ async function update(options: Options, only: string[]): Promise<number> {
     return print(out.join("\n"));
   }
   if (changes.length) {
-    out.push(...renderChangesByServer(changes, undefined, p), "");
+    out.push(...renderChangesByServer(changes, p), "");
     out.push(`${p.green("Accepted")} ${plural(changes.length, "change")} (${summaryLine(changes)}) into ${p.bold(rel(options, options.lockfile))}.`);
     out.push("Review the diff of mcp.lock before you commit it.");
   } else {
@@ -296,7 +342,7 @@ async function snapshot(options: Options): Promise<{ specs: ServerSpec[]; result
   const specs = loadConfig(configPath);
   if (specs.length === 0) throw new UserError(`${rel(options, configPath)} does not define any MCP servers.`);
   if (!options.json && process.stderr.isTTY) process.stderr.write(options.p.dim(`Contacting ${plural(specs.length, "server")}…\n`));
-  const results = await snapshotAll(specs, { timeoutMs: options.timeoutMs, verbose: options.verbose, version: VERSION });
+  const results = await snapshotAll(specs, { timeoutMs: options.timeoutMs, verbose: options.verbose, version: VERSION, probe: options.probe });
   return { specs, results, configPath };
 }
 
@@ -306,33 +352,61 @@ function toLockfile(results: SnapshotResult[]): Lockfile {
   return { lockfileVersion: 1, servers };
 }
 
-async function review(changes: Change[], options: Options): Promise<Map<Change, Review>> {
+/**
+ * Ask the reviewer about the changes that carry text, and let it adjust their
+ * severity. Returns a message when the review could not run and `lenient` says
+ * to carry on without it; otherwise a failure is thrown.
+ */
+async function review(changes: Change[], options: Options, lenient: boolean): Promise<string | undefined> {
   const targets = reviewable(changes);
-  const map = new Map<Change, Review>();
-  if (targets.length === 0) return map;
-  if (!options.json && process.stderr.isTTY) {
-    process.stderr.write(options.p.dim(`Asking Claude (${options.model}) to review ${plural(targets.length, "change")}…\n`));
-  }
-  const reviews = await explainChanges(targets, {
+  if (targets.length === 0) return undefined;
+  const reviewer = claudeReviewer({
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: options.model,
     baseUrl: process.env.ANTHROPIC_BASE_URL,
   });
-  for (const item of reviews) {
-    const change = targets[item.index];
-    if (change) map.set(change, item);
+  if (!options.json && process.stderr.isTTY) {
+    process.stderr.write(options.p.dim(`Asking Claude (${reviewer.model}) to review ${plural(targets.length, "change")}…\n`));
   }
-  return map;
+  try {
+    applyReviews(targets, await reviewer.review(targets), reviewer);
+  } catch (err) {
+    if (lenient && err instanceof UserError) return err.message;
+    throw err;
+  }
+  sortChanges(changes);
+  return undefined;
 }
 
-function withReviews(changes: Change[], reviews: Map<Change, Review> | undefined): unknown[] {
-  return changes.map((change) => {
-    const item = reviews?.get(change);
-    return item ? { ...change, claudeReview: { risk: item.risk, reason: item.reason } } : change;
-  });
+const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+/** Keep each server's changes worst-first after a review moved severities around. */
+function sortChanges(changes: Change[]): void {
+  const order = new Map(changes.map((change, index) => [change, index]));
+  changes.sort((a, b) =>
+    a.server !== b.server
+      ? a.server < b.server
+        ? -1
+        : 1
+      : RANK[a.severity] - RANK[b.severity] || order.get(a)! - order.get(b)!,
+  );
 }
 
-function renderGroups(results: SnapshotResult[], changes: Change[], reviews: Map<Change, Review> | undefined, p: Palette): string[] {
+function writeReport(options: Options, report: Parameters<typeof renderMarkdown>[0]): void {
+  if (!options.report) return;
+  try {
+    appendFileSync(options.report, `${renderMarkdown(report)}\n`);
+  } catch (err) {
+    throw new UserError(`Could not write the report to ${options.report}: ${(err as Error).message}`);
+  }
+}
+
+/** A path mcpkeel chose, shown as code in a Markdown report. */
+function codeName(text: string): string {
+  return `\`${text.replace(/`/g, "")}\``;
+}
+
+function renderGroups(results: SnapshotResult[], changes: Change[], p: Palette): string[] {
   const out: string[] = [];
   const byServer = groupByServer(changes);
   const seen = new Set<string>();
@@ -341,35 +415,25 @@ function renderGroups(results: SnapshotResult[], changes: Change[], reviews: Map
     const own = byServer.get(result.name) ?? [];
     if (!result.ok || own.length === 0) out.push(serverLine(result, p));
     else {
-      out.push(`${p.red("✗")} ${p.bold(result.name)}  ${p.dim(plural(own.length, "change"))}`);
-      for (const change of own) out.push(...renderWithReview(change, reviews, p));
+      out.push(`${p.red("✗")} ${p.bold(visible(result.name))}  ${p.dim(plural(own.length, "change"))}`);
+      for (const change of own) out.push(renderChange(change, p));
     }
   }
   for (const [name, own] of byServer) {
     if (seen.has(name)) continue;
-    out.push(`${p.red("✗")} ${p.bold(name)}  ${p.dim(plural(own.length, "change"))}`);
-    for (const change of own) out.push(...renderWithReview(change, reviews, p));
+    out.push(`${p.red("✗")} ${p.bold(visible(name))}  ${p.dim(plural(own.length, "change"))}`);
+    for (const change of own) out.push(renderChange(change, p));
   }
   return out;
 }
 
-function renderChangesByServer(changes: Change[], reviews: Map<Change, Review> | undefined, p: Palette): string[] {
+function renderChangesByServer(changes: Change[], p: Palette): string[] {
   const out: string[] = [];
   for (const [name, own] of groupByServer(changes)) {
-    out.push(`${p.red("✗")} ${p.bold(name)}  ${p.dim(plural(own.length, "change"))}`);
-    for (const change of own) out.push(...renderWithReview(change, reviews, p));
+    out.push(`${p.red("✗")} ${p.bold(visible(name))}  ${p.dim(plural(own.length, "change"))}`);
+    for (const change of own) out.push(renderChange(change, p));
   }
   return out;
-}
-
-function renderWithReview(change: Change, reviews: Map<Change, Review> | undefined, p: Palette): string[] {
-  const lines = [renderChange(change, p)];
-  const item = reviews?.get(change);
-  if (item) {
-    const tint = item.risk === "malicious" ? p.red : item.risk === "suspicious" ? p.yellow : p.green;
-    lines.push(`${" ".repeat(12)}${p.cyan("Claude:")} ${tint(item.risk)}. ${item.reason}`);
-  }
-  return lines;
 }
 
 function groupByServer(changes: Change[]): Map<string, Change[]> {
@@ -379,9 +443,10 @@ function groupByServer(changes: Change[]): Map<string, Change[]> {
 }
 
 function serverLine(result: SnapshotResult, p: Palette): string {
+  const name = visible(result.name);
   if (!result.ok) {
-    const [first, ...more] = result.error.split("\n");
-    return [`${p.red("✗")} ${p.bold(result.name)}  ${p.red(`could not connect: ${first}`)}`, ...more.map((line) => `    ${p.dim(line)}`)].join("\n");
+    const [first, ...more] = result.error.split("\n").map((line) => visible(line));
+    return [`${p.red("✗")} ${p.bold(name)}  ${p.red(`could not connect: ${first}`)}`, ...more.map((line) => `    ${p.dim(line)}`)].join("\n");
   }
   const { entry } = result;
   const tools = Object.keys(entry.tools).length;
@@ -390,7 +455,7 @@ function serverLine(result: SnapshotResult, p: Palette): string {
   if (prompts) parts.push(plural(prompts, "prompt"));
   if (entry.instructions) parts.push("instructions");
   const info = entry.serverInfo?.name ? `  ${entry.serverInfo.name}${entry.serverInfo.version ? `@${entry.serverInfo.version}` : ""}` : "";
-  return `${p.green("✓")} ${p.bold(result.name)}  ${p.dim(`${entry.transport} · ${parts.join(", ")}${info}`)}`;
+  return `${p.green("✓")} ${p.bold(name)}  ${p.dim(`${entry.transport} · ${parts.join(", ")}${visible(info) ? `  ${visible(info)}` : ""}`)}`;
 }
 
 function footer(changes: Change[], failedCount: number, mode: "verify" | "diff", options: Options, failingCount: number): string[] {
@@ -405,9 +470,40 @@ function footer(changes: Change[], failedCount: number, mode: "verify" | "diff",
   if (mode === "verify" && failingCount === 0) {
     lines.push(p.dim(`Nothing at or above --fail-on ${options.failOn}, so this run passes.`));
   }
-  lines.push("Review the changes, then run `mcpkeel update` to accept them.");
-  if (mode === "diff" && !options.explain) lines.push(p.dim("Add --explain to have Claude assess the changed text."));
+  const unstable = changes.filter((change) => change.kind.startsWith("probe.")).length;
+  if (unstable < changes.length) lines.push("Review the changes, then run `mcpkeel update` to accept them.");
+  if (unstable) {
+    lines.push(
+      `${plural(unstable, "finding")} came from --probe: the server gave different answers within one check. ` +
+        "That cannot be accepted with `mcpkeel update`. Treat the server as untrusted until it holds still.",
+    );
+  }
+  if (!options.explain && unstable < changes.length) lines.push(p.dim("Add --explain to have Claude read the changed text."));
   return lines;
+}
+
+/**
+ * A server whose second reading did not match its first cannot be pinned at
+ * all, so every difference is reported, and none of them can be accepted with
+ * `update` or lowered by a review.
+ */
+function probeChanges(results: SnapshotResult[]): Change[] {
+  const changes: Change[] = [];
+  for (const result of results) {
+    if (!result.ok) continue;
+    for (const finding of result.probes ?? []) {
+      for (const change of diffEntries(result.name, result.entry, finding.entry)) {
+        changes.push({
+          ...change,
+          kind: `probe.${finding.kind}.${change.kind}`,
+          // Changing mid-session has no innocent reading. Answering by client name occasionally does.
+          severity: finding.kind === "session" || change.severity === "critical" ? "critical" : "high",
+          message: `${change.message} ${finding.how}`,
+        });
+      }
+    }
+  }
+  return changes;
 }
 
 interface Note {
@@ -417,13 +513,26 @@ interface Note {
 }
 
 /** Things worth knowing at init time, when there is no earlier lockfile to diff against. */
-function collectNotes(specs: ServerSpec[], lock: Lockfile): Note[] {
+function collectNotes(specs: ServerSpec[], lock: Lockfile, results: SnapshotResult[]): Note[] {
   const notes: Note[] = [];
   for (const spec of specs) {
     const entry = lock.servers[spec.name];
     if (!entry) continue;
     for (const hit of scanServer(entry)) {
-      for (const flag of hit.flags) notes.push({ server: spec.name, subject: hit.subject, message: `${flag.label}: "${flag.excerpt}"` });
+      for (const flag of hit.flags) notes.push({ server: spec.name, subject: visible(hit.subject), message: `${flag.label}: "${flag.excerpt}"` });
+    }
+    const result = results.find((r) => r.name === spec.name);
+    if (result?.ok) {
+      for (const finding of result.probes ?? []) {
+        const differences = diffEntries(spec.name, result.entry, finding.entry);
+        const first = differences[0];
+        notes.push({
+          server: spec.name,
+          subject: "server",
+          message: `gave different definitions ${finding.how} (${plural(differences.length, "difference")}${first ? `, starting with ${visible(first.subject)} ${visible(first.message)}` : ""}). The lockfile pins the first reading, and \`verify --probe\` will keep failing while this lasts.`,
+        });
+      }
+      if (result.probeNote) notes.push({ server: spec.name, subject: "server", message: result.probeNote });
     }
     const unpinned = unpinnedPackage(spec);
     if (unpinned) {
@@ -434,6 +543,7 @@ function collectNotes(specs: ServerSpec[], lock: Lockfile): Note[] {
       });
     }
   }
+  for (const note of crossServerNotes(lock)) notes.push({ ...note, subject: visible(note.subject) });
   return notes;
 }
 
