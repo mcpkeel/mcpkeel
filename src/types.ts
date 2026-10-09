@@ -54,8 +54,24 @@ export interface Flag {
   excerpt: string;
 }
 
+/** How a reviewer model read a change. */
+export type Verdict = "cosmetic" | "functional" | "adversarial";
+
+export interface ReviewOutcome {
+  /** Which reviewer produced this, for example "claude". */
+  by: string;
+  model: string;
+  verdict: Verdict;
+  reason: string;
+  /** What the verdict did to the severity. */
+  effect: "raised" | "lowered" | "kept";
+}
+
 export interface Change {
   severity: Severity;
+  /** The severity the fixed rules assigned, kept when a review changed it. */
+  ruleSeverity?: Severity;
+  review?: ReviewOutcome;
   server: string;
   kind: string;
   subject: string;

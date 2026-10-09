@@ -247,45 +247,276 @@ test("works over Streamable HTTP with headers, and pins the URL without its quer
   assert.match(denied.stdout, /needs authentication/);
 });
 
-test("--explain sends only the changed definitions to the Claude API and prints the verdict", async (t) => {
-  let received;
+/** A stand-in for the Claude API that answers every change with the verdict `decide` picks. */
+async function mockClaude(t, decide, status = 200) {
+  const calls = [];
   const api = createServer(async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
-    received = { url: req.url, headers: req.headers, body: JSON.parse(raw) };
+    const body = JSON.parse(raw);
+    calls.push({ url: req.url, headers: req.headers, body });
+    if (status !== 200) {
+      res.writeHead(status, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: { message: "overloaded" } }));
+    }
+    const items = JSON.parse(body.messages[0].content.replace(/<\/?changes>/g, ""));
+    const verdicts = items.map((item) => ({ index: item.index, ...decide(item) }));
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(
-      JSON.stringify({
-        content: [{ type: "text", text: 'Here you go:\n[{"index":0,"risk":"malicious","reason":"Tells the agent to read an SSH private key and hide it from the user."}]' }],
-      }),
-    );
+    res.end(JSON.stringify({ content: [{ type: "text", text: `Here you go:\n${JSON.stringify(verdicts)}` }] }));
   });
   await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
   t.after(() => api.close());
+  return { calls, env: { ANTHROPIC_API_KEY: "sk-test", ANTHROPIC_BASE_URL: `http://127.0.0.1:${api.address().port}` } };
+}
 
+test("--explain sends only the changed definitions to the Claude API and prints the verdict", async (t) => {
+  const claude = await mockClaude(t, () => ({ verdict: "adversarial", reason: "Tells the agent to read an SSH private key and hide it from the user." }));
   const dir = project();
   await run(dir, ["init"]);
-  const env = { FIXTURE_VARIANT: "rugpull", ANTHROPIC_API_KEY: "sk-test", ANTHROPIC_BASE_URL: `http://127.0.0.1:${api.address().port}` };
-  const result = await run(dir, ["diff", "--explain"], env);
+  const result = await run(dir, ["diff", "--explain"], { FIXTURE_VARIANT: "rugpull", ...claude.env });
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /Claude: malicious\. Tells the agent to read an SSH private key/);
+  assert.match(result.stdout, /Claude: adversarial\. Tells the agent to read an SSH private key/);
 
-  assert.equal(received.url, "/v1/messages");
-  assert.equal(received.headers["x-api-key"], "sk-test");
-  assert.equal(received.headers["anthropic-version"], "2023-06-01");
-  assert.equal(received.body.model, "claude-sonnet-5-5");
-  const sent = received.body.messages[0].content;
+  const [call] = claude.calls;
+  assert.equal(call.url, "/v1/messages");
+  assert.equal(call.headers["x-api-key"], "sk-test");
+  assert.equal(call.headers["anthropic-version"], "2023-06-01");
+  assert.equal(call.body.model, "claude-sonnet-5-5");
+  const sent = call.body.messages[0].content;
   assert.match(sent, /create_issue/);
   // The version bump has no text to review, so only one change is sent.
   assert.equal(JSON.parse(sent.replace(/<\/?changes>/g, "")).length, 1);
 });
 
-test("--explain without a key explains how to get one", async () => {
+test("diff --explain without a key explains how to get one", async () => {
   const dir = project();
   await run(dir, ["init"]);
   const result = await run(dir, ["diff", "--explain"], { FIXTURE_VARIANT: "rugpull", ANTHROPIC_API_KEY: "" });
   assert.equal(result.code, 2);
   assert.match(result.stderr, /ANTHROPIC_API_KEY/);
+});
+
+test("verify --explain lowers a cosmetic rewording to low, so --fail-on medium passes", async (t) => {
+  const claude = await mockClaude(t, () => ({ verdict: "cosmetic", reason: "Same meaning, reworded." }));
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "reworded", ...claude.env };
+
+  // Without the review, the rewording is a high-severity description change.
+  const plain = await run(dir, ["verify", "--fail-on", "medium"], { FIXTURE_VARIANT: "reworded" });
+  assert.equal(plain.code, 1);
+
+  const reviewed = await run(dir, ["verify", "--explain", "--fail-on", "medium", "--json"], env);
+  assert.equal(reviewed.code, 0, reviewed.stdout);
+  const change = JSON.parse(reviewed.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.severity, "low");
+  assert.equal(change.ruleSeverity, "high");
+  assert.deepEqual(change.review, { by: "claude", model: "claude-sonnet-5-5", verdict: "cosmetic", reason: "Same meaning, reworded.", effect: "lowered" });
+
+  // The change is still recorded and still fails a strict gate: nothing is hidden.
+  assert.equal((await run(dir, ["verify", "--explain"], env)).code, 1);
+  const text = await run(dir, ["verify", "--explain", "--fail-on", "medium"], env);
+  assert.match(text.stdout, /LOW\s+tool create_issue description changed/);
+  assert.match(text.stdout, /Claude: cosmetic\. Same meaning, reworded\. \(lowered from HIGH\)/);
+});
+
+test("a reviewer cannot lower a change that a built-in check flagged", async (t) => {
+  // The poisoned description, with a reviewer that has been talked into calling it harmless.
+  const claude = await mockClaude(t, () => ({ verdict: "cosmetic", reason: "Looks like a harmless rewording." }));
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--explain", "--fail-on", "critical", "--json"], { FIXTURE_VARIANT: "rugpull", ...claude.env });
+  assert.equal(result.code, 1);
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.equal(change.review.effect, "kept");
+  assert.equal(change.ruleSeverity, undefined);
+});
+
+test("verify --explain raises a change no pattern caught to critical", async (t) => {
+  const claude = await mockClaude(t, () => ({ verdict: "adversarial", reason: "Asks the agent to copy issue contents to another tool." }));
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "subtle" };
+
+  // The built-in checks see an ordinary description change, which --fail-on critical lets through.
+  assert.equal((await run(dir, ["verify", "--fail-on", "critical"], env)).code, 0);
+
+  const result = await run(dir, ["verify", "--explain", "--fail-on", "critical", "--json"], { ...env, ...claude.env });
+  assert.equal(result.code, 1);
+  const change = JSON.parse(result.stdout).changes[0];
+  assert.equal(change.kind, "tool.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.equal(change.ruleSeverity, "high");
+  assert.equal(change.review.effect, "raised");
+});
+
+test("verify --explain falls back to rule-based severities when the review cannot run", async (t) => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "reworded" };
+
+  const down = await mockClaude(t, () => ({}), 529);
+  const failed = await run(dir, ["verify", "--explain", "--fail-on", "medium"], { ...env, ...down.env });
+  assert.equal(failed.code, 1);
+  assert.match(failed.stdout, /HIGH\s+tool create_issue description changed/);
+  assert.match(failed.stdout, /Review unavailable, so severities are rule-based only: Claude API returned 529: overloaded/);
+
+  // No key at all, as on a pull request from a fork: the gate stays as strict as without --explain.
+  const noKey = await run(dir, ["verify", "--explain", "--fail-on", "medium", "--json"], { ...env, ANTHROPIC_API_KEY: "" });
+  assert.equal(noKey.code, 1);
+  const report = JSON.parse(noKey.stdout);
+  assert.equal(report.review.available, false);
+  assert.match(report.review.error, /ANTHROPIC_API_KEY/);
+});
+
+test("a request for the conversation and the user's keys is critical without any review", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "harvest" });
+  assert.equal(result.code, 1);
+  const change = JSON.parse(result.stdout).changes[0];
+  assert.equal(change.kind, "tool.param.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.deepEqual(change.flags.map((f) => f.id).sort(), ["conversation-harvest", "secret-harvest"]);
+});
+
+test("escape sequences from a server never reach the terminal", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify"], { FIXTURE_VARIANT: "ansi" });
+  assert.equal(result.code, 1);
+  assert.ok(!result.stdout.includes(String.fromCharCode(27)), "raw ESC in output");
+  assert.match(result.stdout, /\\x1B\[2J/);
+  assert.match(result.stdout, /CRITICAL/);
+});
+
+test("--report appends a Markdown report that cannot be hijacked by the text it quotes", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--report", "report.md", "--json"], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(result.code, 1);
+  JSON.parse(result.stdout); // --report does not disturb the JSON on stdout
+  const report = readFileSync(join(dir, "report.md"), "utf8");
+  assert.match(report, /^## mcpkeel: 2 changes \(1 critical, 1 low\)/);
+  assert.match(report, /### `github`/);
+  assert.match(report, /- \*\*CRITICAL\*\* `tool create_issue` description changed/);
+  // The poisoned text sits inside a fenced block, never as live markup.
+  assert.match(report, /  ```diff\n  - Create a new issue in a repository\.\n  \+ Create a new issue in a repository\. <IMPORTANT>/);
+
+  // A second run appends rather than overwrites, as a job summary expects.
+  await run(dir, ["verify", "--report", "report.md"], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(readFileSync(join(dir, "report.md"), "utf8").match(/^## mcpkeel/gm).length, 2);
+});
+
+test("--probe catches a server that rewrites its definitions partway through a session", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "deadbugz" };
+
+  // Read once, at connect, the server looks exactly like what was pinned.
+  assert.equal((await run(dir, ["verify"], env)).code, 0);
+
+  const result = await run(dir, ["verify", "--probe", "--json"], env);
+  assert.equal(result.code, 1);
+  const change = JSON.parse(result.stdout).changes[0];
+  assert.equal(change.kind, "probe.session.tool.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.equal(change.message, "description changed after 5 more requests in the same session");
+  assert.match(change.after, /<IMPORTANT>/);
+});
+
+test("--probe catches a server that answers a checker differently from an agent", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "twofaced" };
+  assert.equal((await run(dir, ["verify"], env)).code, 0);
+
+  const result = await run(dir, ["verify", "--probe"], env);
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /CRITICAL\s+tool create_issue description changed when the client is named "claude-code"/);
+
+  // update pins what mcpkeel itself was shown, so the finding cannot be accepted away.
+  assert.equal((await run(dir, ["update"], env)).code, 0);
+  assert.equal((await run(dir, ["verify", "--probe"], env)).code, 1);
+});
+
+test("--probe is quiet on a server that gives the same answer every time", async () => {
+  const dir = project();
+  assert.equal((await run(dir, ["init", "--probe"])).code, 0);
+  const result = await run(dir, ["verify", "--probe"]);
+  assert.equal(result.code, 0, result.stdout);
+  assert.match(result.stdout, /No drift/);
+});
+
+test("init --probe says so when a server will not hold still", async () => {
+  const dir = project();
+  const result = await run(dir, ["init", "--probe"], { FIXTURE_VARIANT: "deadbugz" });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /gave different definitions after 5 more requests in the same session \(1 difference, starting with tool create_issue description changed\)/);
+});
+
+function twoServers() {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  writeFileSync(
+    join(dir, ".mcp.json"),
+    JSON.stringify({
+      mcpServers: {
+        github: { command: process.execPath, args: [FIXTURE], env: { FIXTURE_VARIANT: "${FIXTURE_VARIANT:-v1}" } },
+        mail: { command: process.execPath, args: [FIXTURE], env: { FIXTURE_SET: "mail", FIXTURE_VARIANT: "v1" } },
+      },
+    }),
+  );
+  return dir;
+}
+
+test("a description that starts steering another server's tool is critical", async () => {
+  const dir = twoServers();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "steer" });
+  assert.equal(result.code, 1);
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.server, "github");
+  assert.equal(change.severity, "critical");
+  assert.deepEqual(change.flags.map((f) => f.id), ["cross-server-reference"]);
+  assert.equal(change.flags[0].label, 'refers to send_email, a tool on "mail"');
+
+  // With only one server in view there is nothing to cross-reference, so it stays high.
+  const alone = project();
+  await run(alone, ["init"]);
+  const single = JSON.parse((await run(alone, ["verify", "--json"], { FIXTURE_VARIANT: "steer" })).stdout);
+  assert.equal(single.changes.find((c) => c.kind === "tool.description.changed").severity, "high");
+});
+
+test("a new tool that takes the name of another server's tool says so", async () => {
+  const dir = twoServers();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify"], { FIXTURE_VARIANT: "collide" });
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /tool send_email added, with the same name as a tool on "mail"/);
+
+  // Pinning it anyway is allowed, and init points the collision out.
+  const fresh = twoServers();
+  const init = await run(fresh, ["init"], { FIXTURE_VARIANT: "collide" });
+  assert.match(init.stdout, /tool send_email: the same tool name is also exposed by "mail"/);
+});
+
+test("an instruction hidden in a parameter name is critical", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "paramname" });
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.param.added");
+  assert.equal(change.severity, "critical");
+  assert.deepEqual(change.flags.map((f) => f.id).sort(), ["sensitive-paths", "sentence-like-name"]);
+});
+
+test("an instruction written backwards is still read", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify"], { FIXTURE_VARIANT: "backwards" });
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /CRITICAL/);
+  assert.match(result.stdout, /tells the model to disregard other instructions \(read backwards\): ".*Ignore all previous instructions/);
 });
 
 test("works over legacy SSE", async (t) => {

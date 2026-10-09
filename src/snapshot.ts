@@ -11,11 +11,34 @@ export interface SnapshotOptions {
   timeoutMs: number;
   verbose: boolean;
   version: string;
+  /** Also check that the server gives the same answer later in the session, and to another client. */
+  probe?: boolean;
+}
+
+/** A second reading of a server that did not match the first. */
+export interface ProbeFinding {
+  kind: "session" | "identity";
+  /** How the second reading was taken, phrased to follow "changed ...". */
+  how: string;
+  entry: ServerEntry;
 }
 
 export type SnapshotResult =
-  | { name: string; ok: true; entry: ServerEntry }
+  | { name: string; ok: true; entry: ServerEntry; probes?: ProbeFinding[]; probeNote?: string }
   | { name: string; ok: false; error: string };
+
+/**
+ * Credentials that are mcpkeel's own. A server being inspected is not handed
+ * them, unless the config passes one on by name in that server's `env`.
+ */
+const OWN_SECRETS = new Set(["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]);
+
+/** The name mcpkeel introduces itself with. */
+const CLIENT_NAME = "mcpkeel";
+/** A second name, to see whether a server answers a checker differently from an agent. */
+export const PROBE_CLIENT_NAME = "claude-code";
+/** Requests sent between the two readings of a session probe. */
+export const PROBE_REQUESTS = 5;
 
 export async function snapshotAll(specs: ServerSpec[], options: SnapshotOptions): Promise<SnapshotResult[]> {
   const results: SnapshotResult[] = new Array(specs.length);
@@ -25,7 +48,7 @@ export async function snapshotAll(specs: ServerSpec[], options: SnapshotOptions)
       const index = next++;
       const spec = specs[index]!;
       try {
-        results[index] = { name: spec.name, ok: true, entry: await snapshotServer(spec, options) };
+        results[index] = { name: spec.name, ok: true, ...(await snapshotServer(spec, options)) };
       } catch (err) {
         results[index] = { name: spec.name, ok: false, error: describeError(err) };
       }
@@ -35,69 +58,61 @@ export async function snapshotAll(specs: ServerSpec[], options: SnapshotOptions)
   return results;
 }
 
-export async function snapshotServer(spec: ServerSpec, options: SnapshotOptions): Promise<ServerEntry> {
+export async function snapshotServer(
+  spec: ServerSpec,
+  options: SnapshotOptions,
+): Promise<{ entry: ServerEntry; probes?: ProbeFinding[]; probeNote?: string }> {
+  const probes: ProbeFinding[] = [];
+
+  const entry = await withSession(spec, options, CLIENT_NAME, async (client) => {
+    const first = await readEntry(client, spec, options);
+    if (options.probe) {
+      // A server can behave until it has seen a few requests and only then
+      // rewrite what it serves. Reading once, at connect, never sees that.
+      await poke(client, options);
+      const second = await readEntry(client, spec, options);
+      if (second.integrity !== first.integrity) {
+        probes.push({ kind: "session", how: `after ${PROBE_REQUESTS} more requests in the same session`, entry: second });
+      }
+    }
+    return first;
+  });
+  if (!options.probe) return { entry };
+
+  // A server that wants to pass a check can serve clean definitions to anything
+  // called "mcpkeel". Asking again under an agent's name closes that door.
+  let probeNote: string | undefined;
+  try {
+    const other = await withSession(spec, options, PROBE_CLIENT_NAME, (client) => readEntry(client, spec, options));
+    if (other.integrity !== entry.integrity) {
+      probes.push({ kind: "identity", how: `when the client is named "${PROBE_CLIENT_NAME}"`, entry: other });
+    }
+  } catch (err) {
+    probeNote = `could not be read a second time as "${PROBE_CLIENT_NAME}": ${describeError(err).split("\n")[0]}`;
+  }
+  return { entry, probes, probeNote };
+}
+
+/** Connect, run `fn`, and always clean up, within one overall deadline. */
+async function withSession<T>(
+  spec: ServerSpec,
+  options: SnapshotOptions,
+  clientName: string,
+  fn: (client: Client) => Promise<T>,
+): Promise<T> {
   const stderrTail: string[] = [];
   const transport = createTransport(spec, options, stderrTail);
-  const client = new Client({ name: "mcpkeel", version: options.version }, { capabilities: {} });
-  const request = { timeout: options.timeoutMs };
+  const client = new Client({ name: clientName, version: options.version }, { capabilities: {} });
+  const budget = options.timeoutMs * (options.probe ? 2 : 1) + 2000;
 
   let timer: NodeJS.Timeout | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`timed out after ${Math.round(options.timeoutMs / 1000)}s`)),
-      options.timeoutMs + 2000,
-    );
+    timer = setTimeout(() => reject(new Error(`timed out after ${Math.round(options.timeoutMs / 1000)}s`)), budget);
   });
 
-  const work = (async (): Promise<ServerEntry> => {
-    await client.connect(transport, request);
-    const capabilities = client.getServerCapabilities() ?? {};
-
-    const tools: Record<string, ToolEntry> = {};
-    if (capabilities.tools) {
-      let cursor: string | undefined;
-      do {
-        const page = await client.listTools(cursor ? { cursor } : undefined, request);
-        for (const tool of page.tools) {
-          tools[tool.name] = toolEntry({
-            title: tool.title,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-            outputSchema: tool.outputSchema,
-            annotations: tool.annotations as Record<string, unknown> | undefined,
-          });
-        }
-        cursor = page.nextCursor;
-      } while (cursor);
-    }
-
-    let prompts: Record<string, PromptEntry> | undefined;
-    if (capabilities.prompts) {
-      prompts = {};
-      let cursor: string | undefined;
-      do {
-        const page = await client.listPrompts(cursor ? { cursor } : undefined, request);
-        for (const prompt of page.prompts) {
-          prompts[prompt.name] = promptEntry({
-            title: prompt.title,
-            description: prompt.description,
-            arguments: prompt.arguments,
-          });
-        }
-        cursor = page.nextCursor;
-      } while (cursor);
-    }
-
-    const info = client.getServerVersion();
-    const partial: Omit<ServerEntry, "integrity"> = {
-      transport: spec.transport,
-      source: lockSource(spec),
-      serverInfo: info ? { name: info.name, version: info.version } : undefined,
-      instructions: client.getInstructions() || undefined,
-      tools,
-      prompts,
-    };
-    return { ...partial, integrity: serverIntegrity(partial) };
+  const work = (async (): Promise<T> => {
+    await client.connect(transport, { timeout: options.timeoutMs });
+    return fn(client);
   })();
 
   try {
@@ -113,10 +128,87 @@ export async function snapshotServer(spec: ServerSpec, options: SnapshotOptions)
   }
 }
 
+/** Everything mcpkeel pins about a server, read over an open session. */
+async function readEntry(client: Client, spec: ServerSpec, options: SnapshotOptions): Promise<ServerEntry> {
+  const request = { timeout: options.timeoutMs };
+  const capabilities = client.getServerCapabilities() ?? {};
+
+  const tools: Record<string, ToolEntry> = {};
+  if (capabilities.tools) {
+    let cursor: string | undefined;
+    do {
+      const page = await client.listTools(cursor ? { cursor } : undefined, request);
+      for (const tool of page.tools) {
+        tools[tool.name] = toolEntry({
+          title: tool.title,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          outputSchema: tool.outputSchema,
+          annotations: tool.annotations as Record<string, unknown> | undefined,
+        });
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
+  }
+
+  let prompts: Record<string, PromptEntry> | undefined;
+  if (capabilities.prompts) {
+    prompts = {};
+    let cursor: string | undefined;
+    do {
+      const page = await client.listPrompts(cursor ? { cursor } : undefined, request);
+      for (const prompt of page.prompts) {
+        prompts[prompt.name] = promptEntry({
+          title: prompt.title,
+          description: prompt.description,
+          arguments: prompt.arguments,
+        });
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
+  }
+
+  const info = client.getServerVersion();
+  const partial: Omit<ServerEntry, "integrity"> = {
+    transport: spec.transport,
+    source: lockSource(spec),
+    serverInfo: info ? { name: info.name, version: info.version } : undefined,
+    instructions: client.getInstructions() || undefined,
+    tools,
+    prompts,
+  };
+  return { ...partial, integrity: serverIntegrity(partial) };
+}
+
+/**
+ * Give a request counter something to count, without doing anything. Each call
+ * names a tool that does not exist, so a well-behaved server answers with an
+ * error and nothing happens. Failures are expected and ignored.
+ */
+async function poke(client: Client, options: SnapshotOptions): Promise<void> {
+  const request = { timeout: Math.min(options.timeoutMs, 5000) };
+  if (client.getServerCapabilities()?.tools) {
+    for (let i = 0; i < PROBE_REQUESTS; i++) {
+      try {
+        await client.callTool({ name: `mcpkeel_probe_does_not_exist_${i}`, arguments: {} }, undefined, request);
+      } catch {
+        // An error is the expected answer.
+      }
+    }
+  }
+  try {
+    await client.ping(request);
+  } catch {
+    // Not every server answers pings.
+  }
+}
+
 function createTransport(spec: ServerSpec, options: SnapshotOptions, stderrTail: string[]): McpTransport {
   if (spec.transport === "stdio") {
     const env: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined && !OWN_SECRETS.has(key)) env[key] = value;
+    }
     for (const [key, value] of Object.entries(spec.env ?? {})) env[key] = expandEnv(value);
     const transport = new StdioClientTransport({
       command: expandEnv(spec.command ?? ""),

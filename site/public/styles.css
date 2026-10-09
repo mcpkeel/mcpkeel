@@ -570,17 +570,17 @@ h3 {
 
 /* ------------------------------------------------------------------- claude */
 
-.claude {
+.pair {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: clamp(2rem, 6vw, 6rem);
   align-items: start;
 }
-.claude-copy p {
+.pair-copy p {
   margin-top: 1.1rem;
   max-width: 34em;
 }
-.claude .printout {
+.pair .printout {
   margin-top: 0.4rem;
 }
 
@@ -680,7 +680,7 @@ footer .fine {
 @media (max-width: 60rem) {
   .hero-body,
   .ci,
-  .claude,
+  .pair,
   .facts {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -711,6 +711,9 @@ footer .fine {
   .masthead nav a:nth-child(2),
   .masthead nav a:nth-child(3) {
     display: none;
+  }
+  .masthead nav {
+    gap: 0.2rem 1.1rem;
   }
   .course {
     margin-top: 0.1rem;

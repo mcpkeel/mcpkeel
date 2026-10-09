@@ -1,0 +1,39 @@
+name: Release
+
+# Publishes to npm when a version tag is pushed:
+#
+#   npm version 0.2.0 --no-git-tag-version   # or edit package.json
+#   git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
+#
+# Publishing uses npm trusted publishing: npm verifies that the request comes
+# from this workflow in this repository, so there is no token to store, leak or
+# rotate. Set it up once on npmjs.com, under the package's Settings, Trusted
+# Publisher: organization "mcpkeel", repository "mcpkeel", workflow "release.yml".
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # lets npm verify the workflow's identity
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24 # trusted publishing needs npm 11.5.1 or later
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Check that the tag matches package.json and action.yml
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"; exit 1; }
+          grep -q "default: \"${version}\"" action.yml || { echo "::error::action.yml does not default to mcpkeel ${version}"; exit 1; }
+      - run: npm test
+      - run: npm publish
