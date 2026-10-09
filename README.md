@@ -198,7 +198,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.0
+      - uses: mcpkeel/mcpkeel@v0.2.1
         with:
           probe: true
           explain: true
@@ -229,7 +229,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.0
+      - uses: mcpkeel/mcpkeel@v0.2.1
         with:
           mode: update-pr
           explain: true
@@ -243,7 +243,7 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 ### Without the action
 
 ```yaml
-      - run: npx mcpkeel@0.2.0 verify --report "$GITHUB_STEP_SUMMARY"
+      - run: npx mcpkeel@0.2.1 verify --report "$GITHUB_STEP_SUMMARY"
 ```
 
 ### Settings worth getting right
