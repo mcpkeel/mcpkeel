@@ -261,12 +261,10 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 - **It does not read tool results.** Instructions can also arrive in what a tool returns. That needs a runtime guard.
 - **No interactive OAuth yet.** Remote servers that take a token in a header work. Servers that need a browser sign-in do not.
 
-## Related work
+## References
 
 - [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/), which lists tool poisoning as MCP03
 - [MCPTox](https://arxiv.org/abs/2508.14925), a benchmark of tool poisoning on real MCP servers
-- [mcp-context-protector](https://blog.trailofbits.com/2025/07/28/we-built-the-security-layer-mcp-always-needed/) from Trail of Bits, a runtime wrapper that blocks changed tools until they are approved
-- [Snyk Agent Scan](https://github.com/snyk/agent-scan), which analyses what tool descriptions say
 
 ## Requirements
 
