@@ -194,8 +194,8 @@ jobs:
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }} # whatever your servers need
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: mcpkeel/mcpkeel@v0.2.0
@@ -225,8 +225,8 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: mcpkeel/mcpkeel@v0.2.0
@@ -251,6 +251,7 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 - **Do not run `--fail-on critical` on the built-in checks alone.** Critical means a pattern matched, and a careful attacker avoids patterns. A plain description change is high. Keep the default, or use `--fail-on medium` together with `--explain`.
 - **Pin the versions of the servers you start.** `npx -y some-server` fetches whatever is newest on every run, so each upstream release shows up as drift nobody chose. `npx -y some-server@1.4.2` only changes when you change it. `mcpkeel init` points out the unpinned ones.
 - **Run on a schedule as well as on pull requests.** A remote server changes without any commit on your side.
+- **`init` and `verify` start the servers in the config they read.** Each `command` runs with the permissions of the job. On a pull request, that is the config from the pull request, so the job deserves the same trust as one that runs the pull request's tests: no secrets on pull requests from forks, and a read-only token.
 
 ## What it does not do
 
