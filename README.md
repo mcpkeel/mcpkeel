@@ -42,8 +42,8 @@ Review the changes, then run `mcpkeel update` to accept them.
 | Command | What it does |
 | --- | --- |
 | `mcpkeel init` | Connects to every server in your MCP config and writes `mcp.lock`. Refuses to overwrite an existing lockfile without `--force`. |
-| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if a server cannot be reached. |
-| `mcpkeel diff` | The same comparison as a report. Always exits `0`. |
+| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if part of the check could not run: a server could not be reached, or `--probe` could not finish. |
+| `mcpkeel diff` | The same comparison as a report. Exits `0` whatever it finds, and `2` if part of the check could not run. |
 | `mcpkeel diff <old> <new>` | Compares two lockfiles without contacting any server. Useful in code review. |
 | `mcpkeel update [server...]` | Accepts the current definitions and rewrites `mcp.lock`, for all servers or only the ones named. |
 
@@ -122,6 +122,8 @@ A server can behave when it is first asked and change afterwards. `--probe` read
 
 - **Later in the same session.** After the first reading, mcpkeel sends five calls to a tool that does not exist, then reads again. A server that counts requests and rewrites its definitions once it has seen a few is caught here.
 - **Under another client name.** mcpkeel connects again as `claude-code` instead of `mcpkeel`. A server that serves clean definitions to a checker and different ones to an agent is caught here.
+
+If either reading cannot be taken, the run is incomplete and exits `2`. It never reports "No drift" for a server it could not finish reading.
 
 ```
 ✗ github  1 change

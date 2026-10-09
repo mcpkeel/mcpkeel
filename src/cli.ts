@@ -205,17 +205,28 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   const reviewError = options.explain ? await review(changes, options, mode === "verify") : undefined;
 
   const failing = changes.filter((change) => atLeast(change.severity, options.failOn));
-  // A server that cannot be reached cannot be verified, so verify fails closed.
-  const code = failed.length ? 2 : mode === "verify" && failing.length ? 1 : 0;
+  const incomplete = incompleteSteps(results, reviewError);
+  // A check that did not run is not a check that passed. A server that cannot be
+  // reached, or a probe that could not finish, fails closed. A review that cannot
+  // run does not: the rule-based severities it leaves in place are the stricter ones.
+  const blocked = incomplete.some((step) => step.step !== "review");
+  const code = blocked ? 2 : mode === "verify" && failing.length ? 1 : 0;
 
   writeReport(options, {
-    heading: changes.length ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: no drift",
+    heading: changes.length
+      ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})`
+      : blocked
+        ? "mcpkeel: verification incomplete"
+        : "mcpkeel: no drift",
     intro: changes.length
       ? `What your MCP servers send today no longer matches ${codeName(rel(options, options.lockfile))}.`
-      : `Every MCP server matches ${codeName(rel(options, options.lockfile))}.`,
+      : blocked
+        ? `Nothing read so far differs from ${codeName(rel(options, options.lockfile))}, but part of the check did not run.`
+        : `Every MCP server matches ${codeName(rel(options, options.lockfile))}.`,
     changes,
     errors: errorList(results),
-    footer: reviewError ? `Review unavailable, so severities are rule-based only: ${reviewError}` : undefined,
+    incomplete: incomplete.filter((step) => step.step !== "connect"),
+    footer: reviewError ? "Review unavailable, so severities are rule-based only." : undefined,
   });
 
   if (options.json) {
@@ -230,6 +241,8 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
           servers: serverSummaries(results, changes),
           changes,
           errors: errorList(results),
+          complete: incomplete.length === 0,
+          incomplete,
           ...(options.explain ? { review: { available: reviewError === undefined, error: reviewError } } : {}),
         },
         null,
@@ -242,7 +255,7 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   const { p } = options;
   const out: string[] = [p.dim(`config  ${rel(options, configPath)}`), p.dim(`lock    ${rel(options, options.lockfile)}`), ""];
   out.push(...renderGroups(results, changes, p));
-  out.push("", ...footer(changes, failed.length, mode, options, failing.length));
+  out.push("", ...footer(changes, failed.length, mode, options, failing.length, incomplete));
   if (reviewError) out.push(p.yellow(`Review unavailable, so severities are rule-based only: ${reviewError}`));
   for (const result of results) {
     if (result.ok && result.probeNote) out.push(p.yellow(`Probe incomplete: ${visible(result.name)} ${visible(result.probeNote)}`));
@@ -458,12 +471,21 @@ function serverLine(result: SnapshotResult, p: Palette): string {
   return `${p.green("✓")} ${p.bold(name)}  ${p.dim(`${entry.transport} · ${parts.join(", ")}${visible(info) ? `  ${visible(info)}` : ""}`)}`;
 }
 
-function footer(changes: Change[], failedCount: number, mode: "verify" | "diff", options: Options, failingCount: number): string[] {
+function footer(
+  changes: Change[],
+  failedCount: number,
+  mode: "verify" | "diff",
+  options: Options,
+  failingCount: number,
+  incomplete: IncompleteStep[],
+): string[] {
   const { p } = options;
   const lines: string[] = [];
   if (failedCount) lines.push(p.red(`${plural(failedCount, "server")} could not be reached, so ${failedCount === 1 ? "it was" : "they were"} not verified.`));
+  const probes = incomplete.filter((step) => step.step === "probe").length;
+  if (probes) lines.push(p.red(`--probe could not finish for ${plural(probes, "server")}, so ${probes === 1 ? "it was" : "they were"} not fully verified.`));
   if (changes.length === 0) {
-    if (!failedCount) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
+    if (!failedCount && !probes) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
     return lines;
   }
   lines.push(`${p.bold("Drift:")} ${plural(changes.length, "change")} (${summaryLine(changes)}).`);
@@ -575,6 +597,23 @@ function serverSummaries(results: SnapshotResult[], changes: Change[]): unknown[
         }
       : { name: result.name, status: "error", error: result.error },
   );
+}
+
+/** A part of the check that did not run. `server` is absent for the review, which covers every server at once. */
+interface IncompleteStep {
+  step: "connect" | "probe" | "review";
+  server?: string;
+  reason: string;
+}
+
+function incompleteSteps(results: SnapshotResult[], reviewError: string | undefined): IncompleteStep[] {
+  const steps: IncompleteStep[] = [];
+  for (const result of results) {
+    if (!result.ok) steps.push({ step: "connect", server: result.name, reason: result.error.split("\n")[0] ?? "" });
+    else if (result.probeNote) steps.push({ step: "probe", server: result.name, reason: result.probeNote });
+  }
+  if (reviewError !== undefined) steps.push({ step: "review", reason: reviewError });
+  return steps;
 }
 
 function errorList(results: SnapshotResult[]): { server: string; error: string }[] {

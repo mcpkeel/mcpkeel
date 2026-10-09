@@ -125,6 +125,8 @@ export interface MarkdownReport {
   intro?: string;
   changes: Change[];
   errors?: { server: string; error: string }[];
+  /** Steps that did not run. The reasons can quote a server, so they are shown as code. */
+  incomplete?: { step: string; server?: string; reason: string }[];
   footer?: string;
 }
 
@@ -170,6 +172,14 @@ export function renderMarkdown(report: MarkdownReport): string {
   if (report.errors?.length) {
     out.push("### Could not be reached", "");
     for (const error of report.errors) out.push(`- ${codeSpan(error.server)}: ${codeSpan(error.error.split("\n")[0] ?? "")}`);
+    out.push("");
+  }
+  if (report.incomplete?.length) {
+    out.push("### Not checked", "");
+    for (const step of report.incomplete) {
+      const where = step.server === undefined ? "" : ` for ${codeSpan(step.server)}`;
+      out.push(`- ${escapeMarkdown(step.step)}${where}: ${codeSpan(step.reason.split("\n")[0] ?? "")}`);
+    }
     out.push("");
   }
   if (report.footer) out.push(report.footer, "");

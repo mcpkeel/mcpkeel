@@ -488,6 +488,62 @@ test("init --probe says so when a server will not hold still", async () => {
   assert.match(result.stdout, /gave different definitions after 5 more requests in the same session \(1 difference, starting with tool create_issue description changed\)/);
 });
 
+test("verify --probe that could not finish is incomplete, never clean", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const report = join(dir, "report.md");
+
+  const text = await run(dir, ["verify", "--probe", "--report", report], { FIXTURE_VARIANT: "shy" });
+  assert.equal(text.code, 2, text.stdout);
+  assert.doesNotMatch(text.stdout, /No drift/);
+  assert.match(text.stdout, /--probe could not finish for 1 server, so it was not fully verified\./);
+
+  const md = readFileSync(report, "utf8");
+  assert.match(md, /^## mcpkeel: verification incomplete$/m);
+  assert.doesNotMatch(md, /no drift/);
+  // The server's error text is quoted as code, never as Markdown.
+  assert.match(md, /^- probe for `github`: ``could not be read a second time as "claude-code": .*`busy` <b>try later<\/b>``$/m);
+
+  const json = JSON.parse((await run(dir, ["verify", "--probe", "--json"], { FIXTURE_VARIANT: "shy" })).stdout);
+  assert.equal(json.ok, false);
+  assert.equal(json.complete, false);
+  assert.deepEqual(
+    json.incomplete.map(({ step, server }) => ({ step, server })),
+    [{ step: "probe", server: "github" }],
+  );
+
+  // Without --probe nothing was asked of the probe, so the same server is clean.
+  const plain = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "shy" })).stdout);
+  assert.equal(plain.complete, true);
+  assert.deepEqual(plain.incomplete, []);
+});
+
+test("a server that cannot be reached never produces a report that says no drift", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const config = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"));
+  config.mcpServers.github.args = [join(dir, "missing.mjs")];
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify(config));
+  const report = join(dir, "report.md");
+  const result = await run(dir, ["verify", "--report", report, "--json"]);
+  assert.equal(result.code, 2);
+  assert.equal(JSON.parse(result.stdout).complete, false);
+  const md = readFileSync(report, "utf8");
+  assert.match(md, /^## mcpkeel: verification incomplete$/m);
+  assert.match(md, /### Could not be reached/);
+});
+
+test("a review that could not run is listed as not checked, and the gate stays strict", async (t) => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const down = await mockClaude(t, () => ({}), 529);
+  const result = await run(dir, ["verify", "--explain", "--json"], { FIXTURE_VARIANT: "reworded", ...down.env });
+  assert.equal(result.code, 1);
+  const json = JSON.parse(result.stdout);
+  assert.equal(json.complete, false);
+  assert.deepEqual(json.incomplete, [{ step: "review", reason: "Claude API returned 529: overloaded" }]);
+});
+
 function twoServers() {
   const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
   writeFileSync(
