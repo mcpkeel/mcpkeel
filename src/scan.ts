@@ -139,6 +139,7 @@ export function disguises(text: string): Disguise[] {
   const add = (how: string, candidate: string): void => {
     if (candidate !== text && candidate.trim()) out.push({ how, text: candidate });
   };
+  add("hidden in tag characters", revealTags(text));
   add("once decoded", decodeRuns(text));
   add("read backwards", [...text].reverse().join(""));
   add("with the spacing removed", text.replace(/(?<![A-Za-z])(?:[A-Za-z][ .\-_*|]){3,}[A-Za-z](?![A-Za-z])/g, (run) => run.replace(/[^A-Za-z]/g, "")));
@@ -146,6 +147,31 @@ export function disguises(text: string): Disguise[] {
   add("in ROT13", rot13(text));
   add("with look-alike letters replaced", foldLookalikes(text));
   return out;
+}
+
+/**
+ * Unicode tag characters (U+E0020 to U+E007E) mirror printable ASCII and render
+ * as nothing, but a model can read them. Each becomes the ASCII character it
+ * stands for, and the begin and cancel tags are dropped.
+ */
+export function revealTags(text: string): string {
+  let out = "";
+  for (const char of text) {
+    const codePoint = char.codePointAt(0)!;
+    if (codePoint >= 0xe0020 && codePoint <= 0xe007e) out += String.fromCharCode(codePoint - 0xe0000);
+    else if (codePoint < 0xe0000 || codePoint > 0xe007f) out += char;
+  }
+  return out;
+}
+
+/** The message spelled in tag characters, if any, with nothing else around it. */
+export function hiddenTagText(text: string): string | undefined {
+  let out = "";
+  for (const char of text) {
+    const codePoint = char.codePointAt(0)!;
+    if (codePoint >= 0xe0020 && codePoint <= 0xe007e) out += String.fromCharCode(codePoint - 0xe0000);
+  }
+  return out.trim() ? out : undefined;
 }
 
 const LEET: Record<string, string> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", $: "s", "!": "i" };
@@ -289,6 +315,11 @@ export function scanText(text: string | undefined): Flag[] {
     }
   };
   run(text, "", RULES);
+  // The invisible characters themselves say nothing. When they spell a message,
+  // the message is what a reviewer needs to see.
+  const hidden = hiddenTagText(text);
+  const invisible = flags.find((flag) => flag.id === "invisible-characters");
+  if (hidden && invisible) invisible.excerpt = `hidden text: "${hidden.length > 160 ? `${hidden.slice(0, 160)}…` : hidden}"`;
   // The same rules again over each way of un-hiding the text. A rule only has
   // to describe what an attack says, not every way it could be disguised.
   for (const variant of disguises(text)) run(variant.text, variant.how, PHRASE_RULES);
