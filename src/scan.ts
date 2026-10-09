@@ -91,12 +91,12 @@ const RULES: Rule[] = [
   {
     id: "conceal-from-user",
     label: "tells the model to hide something from the user",
-    find: regex(/\b(do not|don't|never|without)\b[^.\n]{0,30}\b(tell|telling|mention|mentioning|inform|informing|notify|notifying|reveal|revealing|show|showing|alert|alerting)\b[^.\n]{0,30}\b(user|human|operator)\b/i),
+    find: regex(/\b(do not|don't|never|without)\b[^.\n]{0,30}\b(tell|telling|mention|mentioning|inform|informing|notify|notifying|reveal|revealing|show|showing|alert|alerting)\b(?!\s+(more|fewer|less|over|above|up to|at most|\d))[^.\n]{0,30}\b(user|human|operator)\b/i),
   },
   {
     id: "sensitive-paths",
     label: "references credentials or secret files",
-    find: regex(/(~\/\.ssh|(?<![A-Za-z0-9])id_(rsa|ed25519|ecdsa)(?![A-Za-z0-9])|\.aws\/credentials|\.npmrc\b|\.netrc\b|(^|[\s"'`\/])\.env\b|\/etc\/(passwd|shadow)\b|\bmcp\.json\b|claude_desktop_config\.json)/i),
+    find: regex(/(~\/\.ssh|(?<![A-Za-z0-9])id_(rsa|ed25519|ecdsa)(?![A-Za-z0-9])|\.aws\/credentials|\.npmrc\b|\.netrc\b|(^|[\s"'`\/])\.env\b(?!\.(example|sample|template|dist)\b)|\/etc\/(passwd|shadow)\b|\bmcp\.json\b|claude_desktop_config\.json)/i),
   },
   {
     id: "cross-tool-steering",
