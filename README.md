@@ -396,6 +396,18 @@ Code scanning is available on public repositories, and on private ones with GitH
 - **Run on a schedule as well as on pull requests.** A remote server changes without any commit on your side.
 - **`init` and `verify` start the servers in the config they read.** Each `command` runs with the permissions of the job. On a pull request, that is the config from the pull request, so the job deserves the same trust as one that runs the pull request's tests: no secrets on pull requests from forks, and a read-only token.
 
+## Measured
+
+`eval/mcptox.mjs` runs the [MCPTox](https://arxiv.org/abs/2508.14925) benchmark through mcpkeel: 485 poisoned tool descriptions, and the 362 real tools of the same 45 servers. The benchmark's data is downloaded at a pinned commit and checked against a digest; only the counts are kept in this repository, in `eval/results/mcptox.json`.
+
+| What | Result |
+| --- | --- |
+| A poisoned tool appears on a pinned server | Reported as drift every time, at high or above |
+| The built-in checks flag a poisoned tool, which makes it critical | 50 of 485 (10.3%) |
+| The built-in checks flag a real tool | 0 of 362 (0%) |
+
+The checks were measured as they stand, not tuned to the benchmark. They are precise and narrow: they catch requests for credentials and secret files well, and most attacks phrased as ordinary instructions not at all. That is what the lockfile is for. A change is reported because it is a change, whatever it says, and the checks only decide how loud it is. For the wording itself, `--explain` is the second reading.
+
 ## What it does not do
 
 - **It trusts what you pin.** `mcpkeel init` records whatever the server sends that day. Read the lockfile before you commit it. `init` points out anything that trips a check, and tool names that two servers share.
