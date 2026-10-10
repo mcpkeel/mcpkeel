@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { scanServer } from "../dist/diff.js";
+import { diffLockfiles, scanServer } from "../dist/diff.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -84,19 +84,37 @@ function tally(rows, key) {
 const poisoned = await fetchPinned("pure_tool.json", FILES["pure_tool.json"]);
 const responses = await fetchPinned("response_all.json", FILES["response_all.json"]);
 
+const cleanTools = new Map(Object.values(responses.servers).map((server) => [server.server_name, parseCleanTools(server.clean_system_promot)]));
+const lockOf = (tools) => ({ lockfileVersion: 1, servers: { s: { transport: "stdio", source: {}, integrity: "", tools } } });
+
+/**
+ * The way mcpkeel meets a poisoned tool in use: the server was pinned with its
+ * real tools, and the poisoned one appears later. Returns the most severe
+ * change `verify` reports for it, or undefined if it reports none.
+ */
+function drift(serverName, toolName, entry) {
+  const pinned = Object.fromEntries((cleanTools.get(serverName) ?? []).map(({ name, entry: e }) => [name, e]));
+  const changes = diffLockfiles(lockOf(pinned), lockOf({ ...pinned, [toolName]: entry }));
+  return ["critical", "high", "medium", "low"].find((level) => changes.some((change) => change.severity === level));
+}
+
 const attacks = poisoned.flatMap((server) =>
-  Object.values(server).map((tool) => ({
-    server: tool.server_name,
-    paradigm: tool.paradigm,
-    risk: tool["security risk"],
-    checks: checks(toolEntry(tool.tool_content.trim())),
-  })),
+  Object.values(server).map((tool) => {
+    const entry = toolEntry(tool.tool_content.trim());
+    return {
+      server: tool.server_name,
+      paradigm: tool.paradigm,
+      risk: tool["security risk"],
+      checks: checks(entry),
+      drift: drift(tool.server_name, tool.tool_name, entry),
+    };
+  }),
 );
-const benign = Object.values(responses.servers).flatMap((server) =>
-  parseCleanTools(server.clean_system_promot).map(({ name, entry }) => ({ server: server.server_name, tool: name, checks: checks(entry) })),
-);
+const benign = [...cleanTools].flatMap(([server, tools]) => tools.map(({ name, entry }) => ({ server, tool: name, checks: checks(entry) })));
 
 const flaggedAttacks = attacks.filter((row) => row.checks.length).length;
+const reportedHigh = attacks.filter((row) => row.drift === "critical" || row.drift === "high").length;
+const reportedCritical = attacks.filter((row) => row.drift === "critical").length;
 const flaggedBenign = benign.filter((row) => row.checks.length);
 const byCheck = {};
 for (const row of attacks) for (const id of row.checks) byCheck[id] = (byCheck[id] ?? 0) + 1;
@@ -105,8 +123,11 @@ const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).ver
 const summary = {
   benchmark: { name: "MCPTox", repository: `https://github.com/${REPOSITORY}`, commit: COMMIT, files: FILES },
   mcpkeel: version,
-  what: "Built-in checks only, on each tool as `mcpkeel init` reads it. No model review.",
-  attacks: { total: attacks.length, flagged: flaggedAttacks, rate: pct(flaggedAttacks, attacks.length), byTemplate: tally(attacks, "paradigm"), byRisk: tally(attacks, "risk"), byCheck },
+  what: "Built-in checks only, no model review. `flagged`: a check fires on the tool as `mcpkeel init` reads it. `drift`: the server is pinned with its real tools and the poisoned tool then appears, as `mcpkeel verify` sees it.",
+  attacks: {
+    total: attacks.length,
+    drift: { reportedAtHighOrAbove: reportedHigh, critical: reportedCritical, rate: pct(reportedHigh, attacks.length) },
+    flagged: flaggedAttacks, rate: pct(flaggedAttacks, attacks.length), byTemplate: tally(attacks, "paradigm"), byRisk: tally(attacks, "risk"), byCheck },
   benign: {
     total: benign.length,
     flagged: flaggedBenign.length,
@@ -118,6 +139,8 @@ const summary = {
 
 const line = (label, part, whole) => `${label.padEnd(28)} ${String(part).padStart(4)} / ${String(whole).padEnd(4)} ${pct(part, whole).toFixed(1).padStart(5)}%`;
 console.log(`MCPTox at ${COMMIT.slice(0, 7)}, mcpkeel ${version}, built-in checks only\n`);
+console.log(line("Poisoned tools as drift ≥ high", reportedHigh, attacks.length));
+console.log(line("  of which critical", reportedCritical, attacks.length));
 console.log(line("Poisoned tools flagged", flaggedAttacks, attacks.length));
 for (const [name, g] of Object.entries(summary.attacks.byTemplate)) console.log(line(`  ${name}`, g.flagged, g.total));
 console.log(line("Real tools flagged", flaggedBenign.length, benign.length));

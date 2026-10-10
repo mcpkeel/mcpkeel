@@ -10,7 +10,7 @@
 - `--sarif <file>` writes SARIF 2.1.0 for GitHub code scanning: one result per change, at its line in `mcp.lock`, with a fingerprint that stays the same while the change does. The action has a `sarif` input.
 - `mcpkeel.json`, or `--policy <file>`: decisions about findings, each with a required reason. Accepting a check takes its hit off a change, which returns to the severity it had without it. Setting a severity for a kind of change makes it quieter, never hidden. Every applied decision is shown with its reason.
 - `--provider openai` reviews through any OpenAI-compatible endpoint, including a model server on the same machine, with `--review-url` and `--model`. The prompt, the delimiter and the limits on lowering are the same as with Claude, reports name the model that judged, and the key is not passed to the servers being checked. The action has `provider`, `review-url` and `review-api-key` inputs.
-- `eval/mcptox.mjs` measures the built-in checks on the MCPTox benchmark. As they stand: 50 of 485 poisoned tools flagged, 0 of 362 real tools.
+- `eval/mcptox.mjs` measures mcpkeel on the MCPTox benchmark. A poisoned tool appearing on a pinned server is reported at high or above in 485 of 485 cases. The built-in checks alone flag 50 of the 485 poisoned tools, which makes them critical, and 0 of 362 real tools.
 
 ### Changed
 

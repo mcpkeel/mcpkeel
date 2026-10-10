@@ -402,7 +402,7 @@ Code scanning is available on public repositories, and on private ones with GitH
 
 | What | Result |
 | --- | --- |
-| A poisoned tool appears on a pinned server | Reported as drift every time, at high or above |
+| A poisoned tool appears on a server pinned with its real tools | Reported as drift at high or above: 485 of 485 (100%) |
 | The built-in checks flag a poisoned tool, which makes it critical | 50 of 485 (10.3%) |
 | The built-in checks flag a real tool | 0 of 362 (0%) |
 

@@ -9,9 +9,14 @@
     }
   },
   "mcpkeel": "0.3.0",
-  "what": "Built-in checks only, on each tool as `mcpkeel init` reads it. No model review.",
+  "what": "Built-in checks only, no model review. `flagged`: a check fires on the tool as `mcpkeel init` reads it. `drift`: the server is pinned with its real tools and the poisoned tool then appears, as `mcpkeel verify` sees it.",
   "attacks": {
     "total": 485,
+    "drift": {
+      "reportedAtHighOrAbove": 485,
+      "critical": 50,
+      "rate": 100
+    },
     "flagged": 50,
     "rate": 10.3,
     "byTemplate": {
