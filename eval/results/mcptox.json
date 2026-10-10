@@ -8,7 +8,7 @@
       "response_all.json": "79a90049be931c59e71446d6180b1d7f0d196d123d08a59bc155d142b5041c03"
     }
   },
-  "mcpkeel": "0.2.1",
+  "mcpkeel": "0.3.0",
   "what": "Built-in checks only, on each tool as `mcpkeel init` reads it. No model review.",
   "attacks": {
     "total": 485,

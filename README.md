@@ -314,7 +314,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.1
+      - uses: mcpkeel/mcpkeel@v0.3.0
         with:
           probe: true
           explain: true
@@ -345,7 +345,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.1
+      - uses: mcpkeel/mcpkeel@v0.3.0
         with:
           mode: update-pr
           explain: true
@@ -386,7 +386,7 @@ Code scanning is available on public repositories, and on private ones with GitH
 ### Without the action
 
 ```yaml
-      - run: npx mcpkeel@0.2.1 verify --report "$GITHUB_STEP_SUMMARY"
+      - run: npx mcpkeel@0.3.0 verify --report "$GITHUB_STEP_SUMMARY"
 ```
 
 ### Settings worth getting right

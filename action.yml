@@ -14,7 +14,7 @@ inputs:
     default: verify
   version:
     description: The mcpkeel version to run from npm.
-    default: "0.2.1"
+    default: "0.3.0"
   config:
     description: >-
       Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json,
