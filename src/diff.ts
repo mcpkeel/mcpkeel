@@ -1,5 +1,5 @@
 import { canonicalJson } from "./canonical.js";
-import { collectAllText, excerptAround, newFlags, scanText, sentenceLikeName } from "./scan.js";
+import { collectAllText, collectSchemaText, excerptAround, newFlags, scanText, schemaStrings, sentenceLikeName } from "./scan.js";
 import type { Change, Flag, Lockfile, PromptEntry, ServerEntry, Severity, ToolEntry } from "./types.js";
 
 const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -196,7 +196,52 @@ function diffTool(subject: string, a: ToolEntry, b: ToolEntry): Omit<Change, "se
   if (canonicalJson(a.outputSchema ?? null) !== canonicalJson(b.outputSchema ?? null)) {
     changes.push({ severity: "low", kind: "tool.outputSchema.changed", subject, message: "output schema changed" });
   }
+
+  // Each field above is scanned on its own. A payload split between the
+  // description and a parameter, or between two parameters, matches no rule in
+  // any one field, so the tool is also read as a whole, the way a model reads it.
+  const textChanged = (a.description ?? "") !== (b.description ?? "") || canonicalJson(a.inputSchema ?? null) !== canonicalJson(b.inputSchema ?? null);
+  const had = textChanged ? new Set([...changes.flatMap((change) => change.flags ?? []), ...readingFlags(a)].map((flag) => flag.id)) : undefined;
+  const split = had ? readingFlags(b).filter((flag) => !had.has(flag.id)) : [];
+  if (split.length) {
+    changes.push({
+      severity: "critical",
+      kind: "tool.text.flagged",
+      subject,
+      message: "description and parameters read together match an attack pattern",
+      after: toolText(b),
+      flags: split.map(acrossFields),
+    });
+  }
   return changes;
+}
+
+/**
+ * A tool's description and the text of its schema on one line. The rules stop
+ * at a line break, so the fields are joined with spaces.
+ */
+export function toolText(tool: ToolEntry): string {
+  return oneLine([tool.description ?? "", collectSchemaText(tool.inputSchema)].join(" "));
+}
+
+/**
+ * Flags that only appear when fields are read together: the whole tool on one
+ * line, and the description followed by each schema string in turn. The second
+ * does not depend on parameter order, which the lockfile sorts and an attacker
+ * picks.
+ */
+function readingFlags(tool: ToolEntry): Flag[] {
+  const description = tool.description ?? "";
+  const readings = [toolText(tool), ...schemaStrings(tool.inputSchema).map((text) => oneLine(`${description} ${text}`))];
+  return dedupeFlags(readings.flatMap((reading) => scanText(reading)));
+}
+
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function acrossFields(flag: Flag): Flag {
+  return { ...flag, label: `${flag.label} (across fields)` };
 }
 
 function diffSchema(subject: string, a: unknown, b: unknown): Omit<Change, "server">[] {
@@ -391,6 +436,8 @@ export function scanServer(entry: ServerEntry): { subject: string; flags: Flag[]
 function scanTool(tool: ToolEntry): Flag[] {
   const flags = [...scanText(tool.description), ...scanText(collectAllText(tool.inputSchema))];
   for (const name of Object.keys(properties(tool.inputSchema))) flags.push(...nameFlags(name));
+  const seen = new Set(flags.map((flag) => flag.id));
+  flags.push(...readingFlags(tool).filter((flag) => !seen.has(flag.id)).map(acrossFields));
   return dedupeFlags(flags);
 }
 

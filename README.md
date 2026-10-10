@@ -42,8 +42,8 @@ Review the changes, then run `mcpkeel update` to accept them.
 | Command | What it does |
 | --- | --- |
 | `mcpkeel init` | Connects to every server in your MCP config and writes `mcp.lock`. Refuses to overwrite an existing lockfile without `--force`. |
-| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if a server cannot be reached. |
-| `mcpkeel diff` | The same comparison as a report. Always exits `0`. |
+| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if part of the check could not run: a server could not be reached, or `--probe` could not finish. |
+| `mcpkeel diff` | The same comparison as a report. Exits `0` whatever it finds, and `2` if part of the check could not run. |
 | `mcpkeel diff <old> <new>` | Compares two lockfiles without contacting any server. Useful in code review. |
 | `mcpkeel update [server...]` | Accepts the current definitions and rewrites `mcp.lock`, for all servers or only the ones named. |
 
@@ -123,6 +123,8 @@ A server can behave when it is first asked and change afterwards. `--probe` read
 - **Later in the same session.** After the first reading, mcpkeel sends five calls to a tool that does not exist, then reads again. A server that counts requests and rewrites its definitions once it has seen a few is caught here.
 - **Under another client name.** mcpkeel connects again as `claude-code` instead of `mcpkeel`. A server that serves clean definitions to a checker and different ones to an agent is caught here.
 
+If either reading cannot be taken, the run is incomplete and exits `2`. It never reports "No drift" for a server it could not finish reading.
+
 ```
 ✗ github  1 change
   CRITICAL  tool create_issue description changed after 5 more requests in the same session
@@ -192,11 +194,11 @@ jobs:
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }} # whatever your servers need
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.0
+      - uses: mcpkeel/mcpkeel@v0.2.1
         with:
           probe: true
           explain: true
@@ -223,11 +225,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.0
+      - uses: mcpkeel/mcpkeel@v0.2.1
         with:
           mode: update-pr
           explain: true
@@ -241,7 +243,7 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 ### Without the action
 
 ```yaml
-      - run: npx mcpkeel@0.2.0 verify --report "$GITHUB_STEP_SUMMARY"
+      - run: npx mcpkeel@0.2.1 verify --report "$GITHUB_STEP_SUMMARY"
 ```
 
 ### Settings worth getting right
@@ -249,6 +251,7 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 - **Do not run `--fail-on critical` on the built-in checks alone.** Critical means a pattern matched, and a careful attacker avoids patterns. A plain description change is high. Keep the default, or use `--fail-on medium` together with `--explain`.
 - **Pin the versions of the servers you start.** `npx -y some-server` fetches whatever is newest on every run, so each upstream release shows up as drift nobody chose. `npx -y some-server@1.4.2` only changes when you change it. `mcpkeel init` points out the unpinned ones.
 - **Run on a schedule as well as on pull requests.** A remote server changes without any commit on your side.
+- **`init` and `verify` start the servers in the config they read.** Each `command` runs with the permissions of the job. On a pull request, that is the config from the pull request, so the job deserves the same trust as one that runs the pull request's tests: no secrets on pull requests from forks, and a read-only token.
 
 ## What it does not do
 
@@ -259,12 +262,10 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 - **It does not read tool results.** Instructions can also arrive in what a tool returns. That needs a runtime guard.
 - **No interactive OAuth yet.** Remote servers that take a token in a header work. Servers that need a browser sign-in do not.
 
-## Related work
+## References
 
 - [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/), which lists tool poisoning as MCP03
 - [MCPTox](https://arxiv.org/abs/2508.14925), a benchmark of tool poisoning on real MCP servers
-- [mcp-context-protector](https://blog.trailofbits.com/2025/07/28/we-built-the-security-layer-mcp-always-needed/) from Trail of Bits, a runtime wrapper that blocks changed tools until they are approved
-- [Snyk Agent Scan](https://github.com/snyk/agent-scan), which analyses what tool descriptions say
 
 ## Requirements
 

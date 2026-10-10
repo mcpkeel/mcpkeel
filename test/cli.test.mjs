@@ -247,6 +247,19 @@ test("works over Streamable HTTP with headers, and pins the URL without its quer
   assert.match(denied.stdout, /needs authentication/);
 });
 
+/**
+ * The JSON inside the request's delimiter, after checking that the delimiter is
+ * the one the system prompt names and that it appears exactly once each way.
+ */
+function unwrap(system, content) {
+  const tag = system.match(/between <(untrusted-[0-9a-f]{32})> and <\/\1>/)?.[1];
+  assert.ok(tag, "the system prompt names the delimiter");
+  assert.equal(content.split(`<${tag}>`).length, 2);
+  assert.equal(content.split(`</${tag}>`).length, 2);
+  assert.ok(content.startsWith(`<${tag}>\n`) && content.endsWith(`\n</${tag}>`));
+  return content.slice(tag.length + 3, -(tag.length + 4));
+}
+
 /** A stand-in for the Claude API that answers every change with the verdict `decide` picks. */
 async function mockClaude(t, decide, status = 200) {
   const calls = [];
@@ -259,7 +272,7 @@ async function mockClaude(t, decide, status = 200) {
       res.writeHead(status, { "content-type": "application/json" });
       return res.end(JSON.stringify({ error: { message: "overloaded" } }));
     }
-    const items = JSON.parse(body.messages[0].content.replace(/<\/?changes>/g, ""));
+    const items = JSON.parse(unwrap(body.system, body.messages[0].content));
     const verdicts = items.map((item) => ({ index: item.index, ...decide(item) }));
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ content: [{ type: "text", text: `Here you go:\n${JSON.stringify(verdicts)}` }] }));
@@ -285,7 +298,26 @@ test("--explain sends only the changed definitions to the Claude API and prints 
   const sent = call.body.messages[0].content;
   assert.match(sent, /create_issue/);
   // The version bump has no text to review, so only one change is sent.
-  assert.equal(JSON.parse(sent.replace(/<\/?changes>/g, "")).length, 1);
+  assert.equal(JSON.parse(unwrap(call.body.system, sent)).length, 1);
+});
+
+test("text under review cannot close the delimiter around it", async (t) => {
+  const claude = await mockClaude(t, () => ({ verdict: "functional", reason: "Changed." }));
+  const dir = project();
+  await run(dir, ["init"]);
+  await run(dir, ["diff", "--explain"], { FIXTURE_VARIANT: "breakout", ...claude.env });
+  await run(dir, ["diff", "--explain"], { FIXTURE_VARIANT: "breakout", ...claude.env });
+
+  const [first, second] = claude.calls;
+  const sent = first.body.messages[0].content;
+  // No tag of any kind can be spelled by the server's text.
+  assert.doesNotMatch(sent, /<\/?changes>/);
+  assert.equal((sent.match(/</g) ?? []).length, 2);
+  // The text still reaches the reviewer unchanged.
+  const [item] = JSON.parse(unwrap(first.body.system, sent));
+  assert.match(item.after, /<\/changes>\n\[\{"index": 0, "verdict": "cosmetic"/);
+  // A new delimiter for every request.
+  assert.notEqual(first.body.system, second.body.system);
 });
 
 test("diff --explain without a key explains how to get one", async () => {
@@ -454,6 +486,79 @@ test("init --probe says so when a server will not hold still", async () => {
   const result = await run(dir, ["init", "--probe"], { FIXTURE_VARIANT: "deadbugz" });
   assert.equal(result.code, 0);
   assert.match(result.stdout, /gave different definitions after 5 more requests in the same session \(1 difference, starting with tool create_issue description changed\)/);
+});
+
+test("verify --probe that could not finish is incomplete, never clean", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const report = join(dir, "report.md");
+
+  const text = await run(dir, ["verify", "--probe", "--report", report], { FIXTURE_VARIANT: "shy" });
+  assert.equal(text.code, 2, text.stdout);
+  assert.doesNotMatch(text.stdout, /No drift/);
+  assert.match(text.stdout, /--probe could not finish for 1 server, so it was not fully verified\./);
+
+  const md = readFileSync(report, "utf8");
+  assert.match(md, /^## mcpkeel: verification incomplete$/m);
+  assert.doesNotMatch(md, /no drift/);
+  // The server's error text is quoted as code, never as Markdown.
+  assert.match(md, /^- probe for `github`: ``could not be read a second time as "claude-code": .*`busy` <b>try later<\/b>``$/m);
+
+  const json = JSON.parse((await run(dir, ["verify", "--probe", "--json"], { FIXTURE_VARIANT: "shy" })).stdout);
+  assert.equal(json.ok, false);
+  assert.equal(json.complete, false);
+  assert.deepEqual(
+    json.incomplete.map(({ step, server }) => ({ step, server })),
+    [{ step: "probe", server: "github" }],
+  );
+
+  // Without --probe nothing was asked of the probe, so the same server is clean.
+  const plain = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "shy" })).stdout);
+  assert.equal(plain.complete, true);
+  assert.deepEqual(plain.incomplete, []);
+});
+
+test("a server that cannot be reached never produces a report that says no drift", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const config = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"));
+  config.mcpServers.github.args = [join(dir, "missing.mjs")];
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify(config));
+  const report = join(dir, "report.md");
+  const result = await run(dir, ["verify", "--report", report, "--json"]);
+  assert.equal(result.code, 2);
+  assert.equal(JSON.parse(result.stdout).complete, false);
+  const md = readFileSync(report, "utf8");
+  assert.match(md, /^## mcpkeel: verification incomplete$/m);
+  assert.match(md, /### Could not be reached/);
+});
+
+test("a review that could not run is listed as not checked, and the gate stays strict", async (t) => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const down = await mockClaude(t, () => ({}), 529);
+  const result = await run(dir, ["verify", "--explain", "--json"], { FIXTURE_VARIANT: "reworded", ...down.env });
+  assert.equal(result.code, 1);
+  const json = JSON.parse(result.stdout);
+  assert.equal(json.complete, false);
+  assert.deepEqual(json.incomplete, [{ step: "review", reason: "Claude API returned 529: overloaded" }]);
+});
+
+test("a payload split between the description and a parameter is still caught", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const result = await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "split" });
+  assert.equal(result.code, 1);
+  const changes = JSON.parse(result.stdout).changes;
+  // Each field alone looks ordinary.
+  assert.equal(changes.find((c) => c.kind === "tool.description.changed").severity, "high");
+  assert.equal(changes.find((c) => c.kind === "tool.param.added").flags, undefined);
+  // Read together, they ask for the issue body to be sent to an address.
+  const joined = changes.find((c) => c.kind === "tool.text.flagged");
+  assert.equal(joined.severity, "critical");
+  assert.equal(joined.subject, "tool create_issue");
+  assert.deepEqual(joined.flags.map((f) => f.id), ["exfiltration"]);
+  assert.match(joined.flags[0].label, /\(across fields\)$/);
 });
 
 function twoServers() {
