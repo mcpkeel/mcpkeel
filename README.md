@@ -412,7 +412,7 @@ Code scanning is available on public repositories, and on private ones with GitH
 
 ## Requirements
 
-Node.js 20 or later. One direct dependency: the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). No telemetry, no account.
+Node.js 22 or later. Two direct dependencies: the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), and `smol-toml` to read Codex configs. No telemetry, no account.
 
 ## Development
 

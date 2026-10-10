@@ -2,8 +2,8 @@ name: Release
 
 # Publishes to npm when a version tag is pushed:
 #
-#   npm version 0.2.0 --no-git-tag-version   # or edit package.json
-#   git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
+#   npm version 0.3.0 --no-git-tag-version   # or edit package.json
+#   git commit -am "Release 0.3.0" && git tag v0.3.0 && git push --follow-tags
 #
 # Publishing uses npm trusted publishing: npm verifies that the request comes
 # from this workflow in this repository, so there is no token to store, leak or
@@ -22,13 +22,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24 # trusted publishing needs npm 11.5.1 or later
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false # a publish never starts from a restored cache
       - run: npm ci
       - name: Check that the tag matches package.json and action.yml
         run: |
