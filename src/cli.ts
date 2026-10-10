@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { basename, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
 import { atLeast, crossServerNotes, diffEntries, diffLockfiles, scanServer } from "./diff.js";
 import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
+import { packageRef } from "./resolve.js";
 import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
 import { DEFAULT_MODEL, applyReviews, claudeReviewer, reviewable } from "./review.js";
 import { visible } from "./scan.js";
@@ -20,7 +21,7 @@ Pin what your MCP servers tell your agent, and find out when it changes.
 Usage
   mcpkeel init                 Snapshot every server in your MCP config into mcp.lock
   mcpkeel verify               Compare live servers against mcp.lock; exit 1 on drift
-  mcpkeel diff                 Show what changed, with severity (always exits 0)
+  mcpkeel diff                 Show what changed, with severity (exits 0 unless incomplete)
   mcpkeel diff <old> <new>     Compare two lockfiles without contacting any server
   mcpkeel update [server...]   Accept the current definitions and rewrite mcp.lock
 
@@ -42,6 +43,10 @@ Options
                           that change their definitions partway through a session.
                           Once under another client name, to catch servers that
                           answer a checker differently from an agent.
+      --no-resolve        Do not look up the release that npx, uvx, pipx or docker
+                          runs. By default each one is pinned by version and
+                          registry digest, so a new release fails verify even
+                          when the definitions stay the same.
       --report <file>     verify, diff, update: also append a Markdown report to
                           <file>, for pull request bodies and job summaries
       --force             init: overwrite an existing lockfile
@@ -66,6 +71,7 @@ interface Options {
   model: string;
   report?: string;
   probe: boolean;
+  resolve: boolean;
   force: boolean;
   timeoutMs: number;
   json: boolean;
@@ -88,6 +94,7 @@ async function main(argv: string[]): Promise<number> {
         model: { type: "string" },
         report: { type: "string" },
         probe: { type: "boolean" },
+        "no-resolve": { type: "boolean" },
         force: { type: "boolean" },
         timeout: { type: "string" },
         json: { type: "boolean" },
@@ -120,6 +127,7 @@ async function main(argv: string[]): Promise<number> {
     model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
     report: values.report ? resolve(cwd, values.report) : undefined,
     probe: Boolean(values.probe),
+    resolve: !values["no-resolve"],
     force: Boolean(values.force),
     timeoutMs: timeoutSecs * 1000,
     json: Boolean(values.json),
@@ -195,7 +203,8 @@ async function init(options: Options): Promise<number> {
 
 async function compare(options: Options, mode: "verify" | "diff"): Promise<number> {
   const locked = readLockfile(options.lockfile);
-  const { results, configPath } = await snapshot(options);
+  const { specs, results, configPath } = await snapshot(options);
+  keepLockedPins(specs, results, locked, options);
   const failed = results.filter((r) => !r.ok);
   const changes = diffLockfiles(locked, toLockfile(results), new Set(failed.map((r) => r.name)));
   changes.push(...probeChanges(results));
@@ -259,6 +268,11 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   if (reviewError) out.push(p.yellow(`Review unavailable, so severities are rule-based only: ${reviewError}`));
   for (const result of results) {
     if (result.ok && result.probeNote) out.push(p.yellow(`Probe incomplete: ${visible(result.name)} ${visible(result.probeNote)}`));
+    if (result.ok && result.packageNote) out.push(p.yellow(`${visible(result.name)}: ${visible(result.packageNote)}`));
+  }
+  const unpinned = results.filter((r) => r.ok && r.entry.package && !locked.servers[r.name]?.package).map((r) => visible(r.name));
+  if (unpinned.length) {
+    out.push(p.dim(`${unpinned.join(", ")}: the package that runs is not pinned in ${rel(options, options.lockfile)} yet. \`mcpkeel update\` adds the pin.`));
   }
   return print(out.join("\n"), code);
 }
@@ -292,6 +306,7 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
 async function update(options: Options, only: string[]): Promise<number> {
   const previous = existsSync(options.lockfile) ? readLockfile(options.lockfile) : undefined;
   const { specs, results, configPath } = await snapshot(options);
+  keepLockedPins(specs, results, previous, options);
   const known = new Set([...specs.map((s) => s.name), ...Object.keys(previous?.servers ?? {})]);
   for (const name of only) {
     if (!known.has(name)) throw new UserError(`No server named "${name}" in the config or the lockfile.`);
@@ -334,8 +349,15 @@ async function update(options: Options, only: string[]): Promise<number> {
     out.push("", p.red(`Nothing written: ${plural(failed.length, "server")} could not be reached.`));
     return print(out.join("\n"), 2);
   }
+  const pinned = Object.entries(next.servers)
+    .filter(([name, entry]) => entry.package && previous?.servers[name] && !previous.servers[name]!.package)
+    .map(([name]) => visible(name));
   if (previous && changes.length === 0) {
-    out.push(`${p.green("✓")} ${rel(options, options.lockfile)} is already up to date.`);
+    out.push(
+      pinned.length
+        ? `${p.green("✓")} Pinned the package that runs for ${pinned.join(", ")}. Nothing else changed.`
+        : `${p.green("✓")} ${rel(options, options.lockfile)} is already up to date.`,
+    );
     return print(out.join("\n"));
   }
   if (changes.length) {
@@ -355,8 +377,31 @@ async function snapshot(options: Options): Promise<{ specs: ServerSpec[]; result
   const specs = loadConfig(configPath);
   if (specs.length === 0) throw new UserError(`${rel(options, configPath)} does not define any MCP servers.`);
   if (!options.json && process.stderr.isTTY) process.stderr.write(options.p.dim(`Contacting ${plural(specs.length, "server")}…\n`));
-  const results = await snapshotAll(specs, { timeoutMs: options.timeoutMs, verbose: options.verbose, version: VERSION, probe: options.probe });
+  const results = await snapshotAll(specs, {
+    timeoutMs: options.timeoutMs,
+    verbose: options.verbose,
+    version: VERSION,
+    probe: options.probe,
+    resolve: options.resolve
+      ? { timeoutMs: options.timeoutMs, npmRegistry: process.env.MCPKEEL_NPM_REGISTRY, pypiUrl: process.env.MCPKEEL_PYPI_URL }
+      : false,
+  });
   return { specs, results, configPath };
+}
+
+/**
+ * When a package could not be looked up, or lookups are off, the current
+ * reading has no pin. Keep the locked one, so that is not reported as the pin
+ * being removed. The lookup failure itself is reported as incomplete.
+ */
+function keepLockedPins(specs: ServerSpec[], results: SnapshotResult[], locked: Lockfile | undefined, options: Options): void {
+  for (const result of results) {
+    if (!result.ok || result.entry.package) continue;
+    const pin = locked?.servers[result.name]?.package;
+    if (!pin || (options.resolve && !result.resolveError)) continue;
+    const ref = packageRef(specs.find((spec) => spec.name === result.name)!);
+    if (ref && ref.ecosystem === pin.ecosystem && ref.name === pin.name) result.entry = { ...result.entry, package: pin };
+  }
 }
 
 function toLockfile(results: SnapshotResult[]): Lockfile {
@@ -484,8 +529,10 @@ function footer(
   if (failedCount) lines.push(p.red(`${plural(failedCount, "server")} could not be reached, so ${failedCount === 1 ? "it was" : "they were"} not verified.`));
   const probes = incomplete.filter((step) => step.step === "probe").length;
   if (probes) lines.push(p.red(`--probe could not finish for ${plural(probes, "server")}, so ${probes === 1 ? "it was" : "they were"} not fully verified.`));
+  const lookups = incomplete.filter((step) => step.step === "resolve");
+  for (const step of lookups) lines.push(p.red(`${visible(step.server ?? "")}: ${visible(step.reason)}. The package it runs was not checked.`));
   if (changes.length === 0) {
-    if (!failedCount && !probes) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
+    if (!failedCount && !probes && !lookups.length) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
     return lines;
   }
   lines.push(`${p.bold("Drift:")} ${plural(changes.length, "change")} (${summaryLine(changes)}).`);
@@ -555,6 +602,8 @@ function collectNotes(specs: ServerSpec[], lock: Lockfile, results: SnapshotResu
         });
       }
       if (result.probeNote) notes.push({ server: spec.name, subject: "server", message: result.probeNote });
+      if (result.resolveError) notes.push({ server: spec.name, subject: "package", message: `${result.resolveError}. It is not pinned.` });
+      if (result.packageNote) notes.push({ server: spec.name, subject: "package", message: result.packageNote });
     }
     const unpinned = unpinnedPackage(spec);
     if (unpinned) {
@@ -570,15 +619,11 @@ function collectNotes(specs: ServerSpec[], lock: Lockfile, results: SnapshotResu
 }
 
 /** Package runners that fetch the latest release unless a version is given. */
+/** A package the config runs without naming a release, shown as written. */
 function unpinnedPackage(spec: ServerSpec): string | undefined {
-  if (spec.transport !== "stdio" || !spec.command) return undefined;
-  const runner = basename(spec.command).replace(/\.(cmd|exe)$/i, "");
-  if (!["npx", "bunx", "uvx", "pipx"].includes(runner)) return undefined;
-  const pkg = (spec.args ?? []).find((arg) => !arg.startsWith("-") && arg !== "run" && arg !== "dlx");
-  if (!pkg || pkg.startsWith(".") || pkg.startsWith("/")) return undefined;
-  const at = pkg.lastIndexOf("@");
-  const version = at > 0 ? pkg.slice(at + 1) : pkg.includes("==") ? pkg.split("==")[1] : undefined;
-  return version && version !== "latest" ? undefined : pkg;
+  const ref = packageRef(spec);
+  if (!ref || ref.digest || (ref.requested && ref.requested !== "latest")) return undefined;
+  return ref.ecosystem === "oci" ? ref.name : `${ref.name}${ref.requested ? `@${ref.requested}` : ""}`;
 }
 
 function serverSummaries(results: SnapshotResult[], changes: Change[]): unknown[] {
@@ -601,7 +646,7 @@ function serverSummaries(results: SnapshotResult[], changes: Change[]): unknown[
 
 /** A part of the check that did not run. `server` is absent for the review, which covers every server at once. */
 interface IncompleteStep {
-  step: "connect" | "probe" | "review";
+  step: "connect" | "resolve" | "probe" | "review";
   server?: string;
   reason: string;
 }
@@ -609,8 +654,12 @@ interface IncompleteStep {
 function incompleteSteps(results: SnapshotResult[], reviewError: string | undefined): IncompleteStep[] {
   const steps: IncompleteStep[] = [];
   for (const result of results) {
-    if (!result.ok) steps.push({ step: "connect", server: result.name, reason: result.error.split("\n")[0] ?? "" });
-    else if (result.probeNote) steps.push({ step: "probe", server: result.name, reason: result.probeNote });
+    if (!result.ok) {
+      steps.push({ step: "connect", server: result.name, reason: result.error.split("\n")[0] ?? "" });
+      continue;
+    }
+    if (result.resolveError) steps.push({ step: "resolve", server: result.name, reason: result.resolveError });
+    if (result.probeNote) steps.push({ step: "probe", server: result.name, reason: result.probeNote });
   }
   if (reviewError !== undefined) steps.push({ step: "review", reason: reviewError });
   return steps;

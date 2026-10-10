@@ -1,6 +1,6 @@
 import { canonicalJson } from "./canonical.js";
 import { collectAllText, collectSchemaText, excerptAround, newFlags, scanText, schemaStrings, sentenceLikeName } from "./scan.js";
-import type { Change, Flag, Lockfile, PromptEntry, ServerEntry, Severity, ToolEntry } from "./types.js";
+import type { Change, Flag, Lockfile, PackagePin, PromptEntry, ServerEntry, Severity, ToolEntry } from "./types.js";
 
 const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
@@ -149,7 +149,40 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
       after: describeSource(b),
     });
   }
+  // A lockfile written before packages were pinned has no pin to compare. That
+  // is not drift; the pin is added the next time the lockfile is written.
+  if (a.package && b.package) {
+    const pa = a.package;
+    const pb = b.package;
+    const same = pa.ecosystem === pb.ecosystem && pa.name === pb.name;
+    if (same && pa.version === pb.version && pa.integrity !== pb.integrity) {
+      // Registries do not let a published version change. When it has, the
+      // code is not the code that was reviewed.
+      push({
+        severity: "critical",
+        kind: "server.package.tampered",
+        subject: `package ${pb.name}`,
+        message: `${pb.version} now has different contents`,
+        before: pa.integrity,
+        after: pb.integrity,
+      });
+    } else if (!same || pa.version !== pb.version) {
+      push({
+        severity: "high",
+        kind: "server.package.changed",
+        subject: `package ${pb.name}`,
+        message: `runs a different release: ${describePackage(pa)} → ${describePackage(pb)}`,
+        before: `${describePackage(pa)} ${pa.integrity}`,
+        after: `${describePackage(pb)} ${pb.integrity}`,
+      });
+    }
+  }
   return changes;
+}
+
+function describePackage(pin: PackagePin): string {
+  if (pin.ecosystem === "oci") return `${pin.name}${pin.version ? `:${pin.version}` : ""}`;
+  return `${pin.name}@${pin.version}`;
 }
 
 function origin(url: string | undefined): string | undefined {

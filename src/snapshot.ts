@@ -5,7 +5,8 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Transport as McpTransport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { expandEnv, lockSource } from "./config.js";
 import { promptEntry, serverIntegrity, toolEntry } from "./lockfile.js";
-import type { PromptEntry, ServerEntry, ServerSpec, ToolEntry } from "./types.js";
+import { assertSafeHost, noRedirectFetch, packageRef, resolvePackage, type ResolveOptions } from "./resolve.js";
+import type { PackagePin, PromptEntry, ServerEntry, ServerSpec, ToolEntry } from "./types.js";
 
 export interface SnapshotOptions {
   timeoutMs: number;
@@ -13,6 +14,8 @@ export interface SnapshotOptions {
   version: string;
   /** Also check that the server gives the same answer later in the session, and to another client. */
   probe?: boolean;
+  /** Look up the release each package launcher runs. `false` skips it on purpose. */
+  resolve?: ResolveOptions | false;
 }
 
 /** A second reading of a server that did not match the first. */
@@ -24,7 +27,17 @@ export interface ProbeFinding {
 }
 
 export type SnapshotResult =
-  | { name: string; ok: true; entry: ServerEntry; probes?: ProbeFinding[]; probeNote?: string }
+  | {
+      name: string;
+      ok: true;
+      entry: ServerEntry;
+      probes?: ProbeFinding[];
+      probeNote?: string;
+      /** The package could not be looked up, so what runs was not checked. */
+      resolveError?: string;
+      /** The package was found, but the config asks for something that cannot be pinned, such as a range. */
+      packageNote?: string;
+    }
   | { name: string; ok: false; error: string };
 
 /**
@@ -48,7 +61,12 @@ export async function snapshotAll(specs: ServerSpec[], options: SnapshotOptions)
       const index = next++;
       const spec = specs[index]!;
       try {
-        results[index] = { name: spec.name, ok: true, ...(await snapshotServer(spec, options)) };
+        // The package is looked up before the server is started: the pin says
+        // what was meant to run, independently of what the launcher fetched.
+        const resolved = await resolveSpec(spec, options);
+        const read = await snapshotServer(spec, options);
+        if (resolved.pin) read.entry = { ...read.entry, package: resolved.pin };
+        results[index] = { name: spec.name, ok: true, ...read, resolveError: resolved.error, packageNote: resolved.note };
       } catch (err) {
         results[index] = { name: spec.name, ok: false, error: describeError(err) };
       }
@@ -56,6 +74,20 @@ export async function snapshotAll(specs: ServerSpec[], options: SnapshotOptions)
   };
   await Promise.all(Array.from({ length: Math.min(4, specs.length) }, worker));
   return results;
+}
+
+async function resolveSpec(spec: ServerSpec, options: SnapshotOptions): Promise<{ pin?: PackagePin; error?: string; note?: string }> {
+  if (!options.resolve) return {};
+  const ref = packageRef(spec);
+  if (!ref) return {};
+  try {
+    const resolution = await resolvePackage(ref, options.resolve);
+    if (resolution.kind === "pinned") return { pin: resolution.pin };
+    if (resolution.kind === "unpinnable") return { note: resolution.reason };
+    return {};
+  } catch (err) {
+    return { error: `could not look up ${ref.ecosystem} package ${ref.name}: ${(err as Error).message}` };
+  }
 }
 
 export async function snapshotServer(
@@ -111,6 +143,7 @@ async function withSession<T>(
   });
 
   const work = (async (): Promise<T> => {
+    if (spec.transport !== "stdio") await assertSafeHost(new URL(expandEnv(spec.url ?? "")));
     await client.connect(transport, { timeout: options.timeoutMs });
     return fn(client);
   })();
@@ -226,7 +259,7 @@ function createTransport(spec: ServerSpec, options: SnapshotOptions, stderrTail:
   const url = new URL(expandEnv(spec.url ?? ""));
   const headers: Record<string, string> = {};
   for (const [key, value] of Object.entries(spec.headers ?? {})) headers[key] = expandEnv(value);
-  const init = { requestInit: { headers } };
+  const init = { requestInit: { headers }, fetch: noRedirectFetch };
   return spec.transport === "sse" ? new SSEClientTransport(url, init) : new StreamableHTTPClientTransport(url, init);
 }
 

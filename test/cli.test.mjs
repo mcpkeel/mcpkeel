@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -656,4 +656,136 @@ test("with no config at all, says where it looked", async () => {
   assert.equal(result.code, 2);
   assert.match(result.stderr, /No MCP config found/);
   assert.match(result.stderr, /--config/);
+});
+
+/* ------------------------------------------------------------ packages */
+
+/** A stand-in for the npm registry, serving one package whose releases a test can change. */
+async function mockNpm(t, state) {
+  const requests = [];
+  const api = createServer((req, res) => {
+    requests.push(req.url);
+    if (state.down) {
+      res.writeHead(503);
+      return res.end();
+    }
+    if (req.url !== "/demo-mcp") {
+      res.writeHead(404);
+      return res.end();
+    }
+    const versions = Object.fromEntries(Object.entries(state.releases).map(([version, digest]) => [version, { dist: { integrity: digest } }]));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ "dist-tags": { latest: state.latest }, versions }));
+  });
+  await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
+  t.after(() => api.close());
+  return { requests, env: { MCPKEEL_NPM_REGISTRY: `http://127.0.0.1:${api.address().port}` } };
+}
+
+/** A project whose server is launched as `npx -y demo-mcp`, with an `npx` on PATH that starts the fixture instead of fetching anything. */
+function npxProject(spec = "demo-mcp") {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  const bin = join(dir, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "npx"), `#!/bin/sh\nexec "${process.execPath}" "${FIXTURE}"\n`);
+  chmodSync(join(bin, "npx"), 0o755);
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { demo: { command: "npx", args: ["-y", spec] } } }));
+  return { dir, env: { PATH: `${bin}:${process.env.PATH}` } };
+}
+
+const SHA_A = "sha512-" + "A".repeat(86) + "==";
+const SHA_B = "sha512-" + "B".repeat(86) + "==";
+
+test("init pins the release npx runs, and a new release fails verify though the definitions are the same", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+
+  assert.equal((await run(dir, ["init"], all)).code, 0);
+  const lock = JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8"));
+  assert.deepEqual(lock.servers.demo.package, { ecosystem: "npm", name: "demo-mcp", version: "1.0.0", integrity: SHA_A });
+  assert.equal((await run(dir, ["verify"], all)).code, 0);
+
+  state.latest = "1.0.1";
+  state.releases["1.0.1"] = SHA_B;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 1);
+  const [change] = JSON.parse(result.stdout).changes;
+  assert.equal(change.kind, "server.package.changed");
+  assert.equal(change.severity, "high");
+  assert.equal(change.message, "runs a different release: demo-mcp@1.0.0 → demo-mcp@1.0.1");
+});
+
+test("a published release whose contents changed is critical", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject("demo-mcp@1.0.0");
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+
+  state.releases["1.0.0"] = SHA_B;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 1);
+  const [change] = JSON.parse(result.stdout).changes;
+  assert.equal(change.kind, "server.package.tampered");
+  assert.equal(change.severity, "critical");
+});
+
+test("a registry that cannot be reached leaves verify incomplete, and --no-resolve skips the lookup on purpose", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+
+  state.down = true;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 2);
+  const json = JSON.parse(result.stdout);
+  // The pin is not reported as removed: the lookup did not run, and that is what is reported.
+  assert.deepEqual(json.changes, []);
+  assert.deepEqual(json.incomplete.map((s) => s.step), ["resolve"]);
+  assert.match(json.incomplete[0].reason, /could not look up npm package demo-mcp/);
+
+  const before = npm.requests.length;
+  const skipped = await run(dir, ["verify", "--no-resolve", "--json"], all);
+  assert.equal(skipped.code, 0);
+  assert.equal(JSON.parse(skipped.stdout).complete, true);
+  assert.equal(npm.requests.length, before);
+});
+
+test("a lockfile from before package pins is not drift", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+  const lock = JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8"));
+  delete lock.servers.demo.package;
+  writeFileSync(join(dir, "mcp.lock"), JSON.stringify(lock));
+
+  const result = await run(dir, ["verify"], all);
+  assert.equal(result.code, 0, result.stdout);
+  assert.match(result.stdout, /demo: the package that runs is not pinned in mcp\.lock yet\. `mcpkeel update` adds the pin\./);
+  const updated = await run(dir, ["update"], all);
+  assert.match(updated.stdout, /Pinned the package that runs for demo\. Nothing else changed\./);
+  assert.equal(JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8")).servers.demo.package.version, "1.0.0");
+});
+
+test("a version range cannot be pinned, and init says so", async (t) => {
+  const npm = await mockNpm(t, { latest: "1.2.0", releases: { "1.2.0": SHA_A } });
+  const { dir, env } = npxProject("demo-mcp@^1.0.0");
+  const result = await run(dir, ["init"], { ...env, ...npm.env });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /demo-mcp@\^1\.0\.0 is a range or an unknown tag/);
+  assert.equal(JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8")).servers.demo.package, undefined);
+});
+
+test("a remote server at a cloud metadata address is refused before any request", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { meta: { type: "http", url: "http://169.254.169.254/mcp" } } }));
+  const result = await run(dir, ["init"], {});
+  assert.equal(result.code, 2);
+  assert.match(result.stdout, /refused: 169\.254\.169\.254 resolves to 169\.254\.169\.254, a link-local or cloud metadata address/);
 });

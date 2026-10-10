@@ -42,7 +42,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | Command | What it does |
 | --- | --- |
 | `mcpkeel init` | Connects to every server in your MCP config and writes `mcp.lock`. Refuses to overwrite an existing lockfile without `--force`. |
-| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if part of the check could not run: a server could not be reached, or `--probe` could not finish. |
+| `mcpkeel verify` | Reconnects and compares against `mcp.lock`. Exits `1` on drift and `2` if part of the check could not run: a server or a package registry could not be reached, or `--probe` could not finish. |
 | `mcpkeel diff` | The same comparison as a report. Exits `0` whatever it finds, and `2` if part of the check could not run. |
 | `mcpkeel diff <old> <new>` | Compares two lockfiles without contacting any server. Useful in code review. |
 | `mcpkeel update [server...]` | Accepts the current definitions and rewrites `mcp.lock`, for all servers or only the ones named. |
@@ -51,6 +51,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | --- | --- |
 | `--probe` | Reads each server two more times, to catch servers that change their answer. See [A second reading](#a-second-reading). |
 | `--explain` | Has Claude read each changed text and adjust its severity. See [A review from Claude](#a-review-from-claude). |
+| `--no-resolve` | Skips looking up the release each package launcher runs. See [What runs](#what-runs). |
 | `--fail-on <level>` | `verify`: the lowest severity that fails the run. The default is `low`, so any drift fails. |
 | `--report <file>` | Also appends a Markdown report to a file, for pull request bodies and job summaries. |
 | `--json` | Machine-readable output. |
@@ -68,6 +69,8 @@ mcpkeel reads the first of these it finds, or the file you pass with `--config`:
 
 It understands `mcpServers` and `servers`, comments, `${VAR}` and `${VAR:-default}` references, local stdio servers, Streamable HTTP and SSE. A reference to an unset variable is an error, not an empty string.
 
+A remote server whose host is, or resolves to, a link-local or cloud metadata address is refused before any request, and redirects from remote servers are not followed. On a CI runner, those addresses can hand out the runner's cloud credentials.
+
 ## What gets pinned
 
 - Tool names, titles and descriptions
@@ -76,6 +79,7 @@ It understands `mcpServers` and `servers`, comments, `${VAR}` and `${VAR:-defaul
 - Prompts and their arguments
 - The server's instructions
 - The server's reported name and version, and the launch command as written in your config
+- The release the launch command runs, and the registry's digest of it. See [What runs](#what-runs).
 
 `mcp.lock` is deterministic: the same servers produce a byte-identical file, with no timestamps, so it only shows up in a diff when something changed. Key order and tool order are normalized, so a server that reorders its output is not drift.
 
@@ -87,8 +91,8 @@ The closer a change is to text your agent reads as guidance, the higher it grade
 
 | Severity | Examples |
 | --- | --- |
-| **critical** | New text that trips a built-in check. A description that starts referring to another server's tool. A server that changes its definitions partway through a session. |
-| **high** | A tool description, parameter description or the server's instructions changed. A tool was added. A server is in the config but not in the lockfile. A tool stopped being marked read-only. The launch command now starts a different program or host. A server that answers differently under another client name. |
+| **critical** | New text that trips a built-in check. A package release whose contents changed after it was published. A description that starts referring to another server's tool. A server that changes its definitions partway through a session. |
+| **high** | A tool description, parameter description or the server's instructions changed. A tool was added. A server is in the config but not in the lockfile. A tool stopped being marked read-only. The launch command now starts a different program or host. The launcher now runs a different release of its package. A server that answers differently under another client name. |
 | **medium** | A parameter was added, removed or retyped. A tool was removed. A prompt changed. The launch arguments changed. |
 | **low** | The server version changed. An output schema changed. |
 
@@ -135,6 +139,22 @@ If either reading cannot be taken, the run is incomplete and exits `2`. It never
 A change partway through a session is always critical. A different answer under another name is at least high, and critical when the difference trips a check. Neither can be accepted with `mcpkeel update`: a server that does not give the same answer twice cannot be pinned.
 
 `--probe` is off by default because it starts each local server twice and sends requests that a monitored server may log. It catches triggers that count requests or look at the client's name. It does not catch a server that waits for a date, or for a call that succeeds.
+
+## What runs
+
+A server's definitions can stay the same while the code behind them changes. `npx -y some-server` runs whatever release is newest on the day, and a compromised release can keep every description intact.
+
+So for servers started through a package launcher, mcpkeel also pins the release that runs and the registry's digest of it:
+
+| Launcher | Registry | Pinned as |
+| --- | --- | --- |
+| `npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `npm exec` | npm | version and `dist.integrity` |
+| `uvx`, `uv tool run`, `pipx run` | PyPI | version and a digest over all of the release's files |
+| `docker run`, `podman run` | the image's registry | tag and manifest digest |
+
+A different release is high. The same version with different contents is critical: registries do not let a published version change. The lookup happens before the server is started and never follows a redirect.
+
+A version range such as `some-server@^1.0.0` cannot be pinned to one release, and `init` says so. A lockfile written before 0.3.0 has no pins; `verify` says which servers lack one, and `mcpkeel update` adds them. If a registry cannot be reached, the run is incomplete and exits `2`. `--no-resolve` turns the lookup off.
 
 ## A review from Claude
 
@@ -249,14 +269,14 @@ The report quotes text from the servers it checks. Nothing from a server is emit
 ### Settings worth getting right
 
 - **Do not run `--fail-on critical` on the built-in checks alone.** Critical means a pattern matched, and a careful attacker avoids patterns. A plain description change is high. Keep the default, or use `--fail-on medium` together with `--explain`.
-- **Pin the versions of the servers you start.** `npx -y some-server` fetches whatever is newest on every run, so each upstream release shows up as drift nobody chose. `npx -y some-server@1.4.2` only changes when you change it. `mcpkeel init` points out the unpinned ones.
+- **Pin the versions of the servers you start.** `npx -y some-server` fetches whatever is newest on every run, so each upstream release fails `verify` as a release nobody chose. `npx -y some-server@1.4.2` only changes when you change it. `mcpkeel init` points out the unpinned ones.
 - **Run on a schedule as well as on pull requests.** A remote server changes without any commit on your side.
 - **`init` and `verify` start the servers in the config they read.** Each `command` runs with the permissions of the job. On a pull request, that is the config from the pull request, so the job deserves the same trust as one that runs the pull request's tests: no secrets on pull requests from forks, and a read-only token.
 
 ## What it does not do
 
 - **It trusts what you pin.** `mcpkeel init` records whatever the server sends that day. Read the lockfile before you commit it. `init` points out anything that trips a check, and tool names that two servers share.
-- **It checks definitions, not behavior.** A server can keep its descriptions and change what a tool does. The backdoored `postmark-mcp` package differed from the original by one line of code. Pinning the server's version is the defense against that.
+- **It checks definitions, not behavior.** A server can keep its descriptions and change what a tool does. The backdoored `postmark-mcp` package differed from the original by one line of code. mcpkeel pins the release that runs, so a new release fails `verify`, but it does not read the code. Reviewing a release before you accept it is still yours to do.
 - **It checks when you run it.** It is not a proxy, and it does not sit between your agent and the server. `--probe` narrows the gap, but a server that waits for a particular day will pass.
 - **It pins what a plain client sees.** mcpkeel connects without optional client capabilities such as sampling. A server that lists extra tools for clients that have them will show mcpkeel the shorter list.
 - **It does not read tool results.** Instructions can also arrive in what a tool returns. That needs a runtime guard.
