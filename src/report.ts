@@ -57,6 +57,11 @@ export function renderChange(change: Change, p: Palette): string {
     const tint = verdict === "adversarial" ? p.red : verdict === "functional" ? p.yellow : p.green;
     lines.push(`${INDENT}${p.cyan(`${reviewerName(change)}:`)} ${tint(verdict)}. ${visible(change.review.reason)}${effectNote(change, p)}`);
   }
+  // The reason is written by the team, in the repository, but is shown through
+  // visible() all the same: it arrives in a pull request like anything else.
+  for (const entry of change.policy ?? []) {
+    lines.push(`${INDENT}${p.cyan(`Policy ${entry.rule}:`)} ${entry.effect}. ${p.dim(visible(entry.reason))}`);
+  }
   return lines.join("\n");
 }
 
@@ -166,6 +171,7 @@ export function renderMarkdown(report: MarkdownReport): string {
             : "";
         out.push(`  - ${reviewerName(change)}: **${change.review.verdict}**. ${escapeMarkdown(change.review.reason)}${effect}`);
       }
+      for (const entry of change.policy ?? []) out.push(`  - Policy ${entry.rule}: ${escapeMarkdown(entry.effect)}. ${escapeMarkdown(entry.reason)}`);
     }
     out.push("");
   }

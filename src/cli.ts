@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
 import { atLeast, crossServerNotes, diffEntries, diffLockfiles, scanServer } from "./diff.js";
 import { renderSarif, withCodes } from "./findings.js";
 import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
+import { POLICY_NAME, applyPolicy, readPolicy, unknownServers, type Policy } from "./policy.js";
 import { packageRef } from "./resolve.js";
 import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
 import { DEFAULT_MODEL, applyReviews, claudeReviewer, reviewable } from "./review.js";
@@ -53,6 +54,9 @@ Options
       --sarif <file>      verify, diff: also write the changes as SARIF 2.1.0, for
                           GitHub code scanning. Each carries a stable MK code
                           and its OWASP MCP Top 10 category.
+      --policy <file>     verify, diff: decisions about findings, each with a
+                          reason (default: mcpkeel.json next to the lockfile,
+                          when it exists). See the README.
       --report <file>     verify, diff, update: also append a Markdown report to
                           <file>, for pull request bodies and job summaries
       --force             init: overwrite an existing lockfile
@@ -77,6 +81,8 @@ interface Options {
   model: string;
   report?: string;
   sarif?: string;
+  /** An explicit --policy path; otherwise mcpkeel.json next to the lockfile is read if it exists. */
+  policy?: string;
   probe: boolean;
   resolve: boolean;
   force: boolean;
@@ -101,6 +107,7 @@ async function main(argv: string[]): Promise<number> {
         model: { type: "string" },
         report: { type: "string" },
         sarif: { type: "string" },
+        policy: { type: "string" },
         probe: { type: "boolean" },
         "no-resolve": { type: "boolean" },
         force: { type: "boolean" },
@@ -135,6 +142,7 @@ async function main(argv: string[]): Promise<number> {
     model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
     report: values.report ? resolve(cwd, values.report) : undefined,
     sarif: values.sarif ? resolve(cwd, values.sarif) : undefined,
+    policy: values.policy ? resolve(cwd, values.policy) : undefined,
     probe: Boolean(values.probe),
     resolve: !values["no-resolve"],
     force: Boolean(values.force),
@@ -217,6 +225,10 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   const failed = results.filter((r) => !r.ok);
   const changes = diffLockfiles(locked, toLockfile(results), new Set(failed.map((r) => r.name)));
   changes.push(...probeChanges(results));
+  const policy = loadPolicy(options);
+  const strays = policy ? unknownServers(policy, locked) : [];
+  const kept = policy ? applyPolicy(changes, policy) : changes;
+  changes.splice(0, changes.length, ...kept);
   sortChanges(changes);
   // In verify, a review that cannot run leaves the stricter rule-based severities
   // in place, so a missing key (a pull request from a fork, say) never loosens the gate.
@@ -262,6 +274,7 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
           errors: errorList(results),
           complete: incomplete.length === 0,
           incomplete,
+          ...(policy ? { policy: { path: policy.path, entries: policy.accept.length, unknownServers: strays.map((entry) => entry.server) } } : {}),
           ...(options.explain ? { review: { available: reviewError === undefined, error: reviewError } } : {}),
         },
         null,
@@ -280,6 +293,9 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
     if (result.ok && result.probeNote) out.push(p.yellow(`Probe incomplete: ${visible(result.name)} ${visible(result.probeNote)}`));
     if (result.ok && result.packageNote) out.push(p.yellow(`${visible(result.name)}: ${visible(result.packageNote)}`));
   }
+  for (const entry of strays) {
+    out.push(p.yellow(`${rel(options, policy!.path)}: ${entry.rule} names server "${visible(entry.server)}", which is not in ${rel(options, options.lockfile)}, so it does nothing.`));
+  }
   const unpinned = results.filter((r) => r.ok && r.entry.package && !locked.servers[r.name]?.package).map((r) => visible(r.name));
   if (unpinned.length) {
     out.push(p.dim(`${unpinned.join(", ")}: the package that runs is not pinned in ${rel(options, options.lockfile)} yet. \`mcpkeel update\` adds the pin.`));
@@ -290,7 +306,8 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
 async function diffFiles(options: Options, oldPath: string, newPath: string): Promise<number> {
   const before = readLockfile(resolve(options.cwd, oldPath));
   const after = readLockfile(resolve(options.cwd, newPath));
-  const changes = diffLockfiles(before, after);
+  const policy = loadPolicy(options);
+  const changes = policy ? applyPolicy(diffLockfiles(before, after), policy) : diffLockfiles(before, after);
   if (options.explain) await review(changes, options, false);
   writeSarif(options, changes, resolve(options.cwd, newPath));
 
@@ -459,6 +476,10 @@ function sortChanges(changes: Change[]): void {
         : 1
       : RANK[a.severity] - RANK[b.severity] || order.get(a)! - order.get(b)!,
   );
+}
+
+function loadPolicy(options: Options): Policy | undefined {
+  return readPolicy(options.policy ?? join(dirname(options.lockfile), POLICY_NAME), options.policy !== undefined);
 }
 
 function writeSarif(options: Options, changes: Change[], lockfile: string): void {

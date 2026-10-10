@@ -74,6 +74,10 @@ const FLAGS: Record<string, RuleInfo> = {
   "cross-server-reference": { code: "MK213", name: "CrossServerReference", summary: "Text refers to a tool on another server.", owasp: "MCP03:2025" },
 };
 
+/** Every code mcpkeel reports for a kind of change, and for a built-in check. */
+export const CHANGE_CODES: ReadonlySet<string> = new Set(Object.values(KINDS).map((info) => info.code));
+export const CHECK_CODES: ReadonlySet<string> = new Set(Object.values(FLAGS).map((info) => info.code));
+
 const UNKNOWN: RuleInfo = { code: "MK100", name: "OtherChange", summary: "A change mcpkeel has no specific code for." };
 
 export function kindRule(kind: string): RuleInfo {
@@ -123,10 +127,11 @@ export function renderSarif(input: SarifInput): string {
     if (!prior || rank(change.severity) < rank(prior.severity)) used.set(info.code, { ...info, severity: change.severity });
     const flags = (change.flags ?? []).map((flag) => `${flagRule(flag.id).code} ${flag.label}: ${visible(flag.excerpt)}`);
     const review = change.review ? [`Review (${change.review.model}): ${change.review.verdict}. ${visible(change.review.reason)}`] : [];
+    const policy = (change.policy ?? []).map((entry) => `Policy ${entry.rule}: ${entry.effect}. ${visible(entry.reason)}`);
     return {
       ruleId: info.code,
       level: LEVEL[change.severity],
-      message: { text: [`${visible(change.server)}: ${visible(change.subject)} ${visible(change.message)} (${change.severity}).`, ...flags, ...review].join("\n") },
+      message: { text: [`${visible(change.server)}: ${visible(change.subject)} ${visible(change.message)} (${change.severity}).`, ...flags, ...review, ...policy].join("\n") },
       locations: [
         {
           physicalLocation: {

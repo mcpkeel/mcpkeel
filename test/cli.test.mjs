@@ -912,3 +912,75 @@ test("JSON output carries the stable code and OWASP category of each change and 
   assert.equal(flag.rule, "MK207");
   assert.equal(flag.owasp, "MCP01:2025");
 });
+
+/* -------------------------------------------------------------- policy */
+
+function withPolicy(dir, accept) {
+  writeFileSync(join(dir, "mcpkeel.json"), JSON.stringify({ accept }));
+}
+
+test("a policy accepts a check for one tool, and the change goes back to its severity without it", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const reason = "The tool documents which key files it refuses to read.";
+
+  // Accepting one of three checks leaves the change critical.
+  withPolicy(dir, [{ rule: "MK207", server: "github", subject: "tool create_issue", reason }]);
+  let change = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "rugpull" })).stdout).changes.find((c) => c.rule === "MK112");
+  assert.equal(change.severity, "critical");
+  assert.ok(!change.flags.some((f) => f.rule === "MK207"));
+  assert.deepEqual(change.policy, [{ rule: "MK207", reason, effect: "check accepted" }]);
+
+  // Accepting all of them leaves a high description change: still reported, still failing by default.
+  withPolicy(dir, ["MK203", "MK206", "MK207"].map((rule) => ({ rule, server: "github", subject: "tool create_issue", reason })));
+  const result = await run(dir, ["verify"], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /HIGH\s+tool create_issue description changed/);
+  assert.match(result.stdout, /Policy MK207: check accepted\. The tool documents which key files it refuses to read\./);
+});
+
+test("a policy sets the severity of a kind of change, and never hides it", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  withPolicy(dir, [{ rule: "MK112", server: "*", severity: "medium", reason: "Descriptions here are rewritten often and reviewed in the PR." }]);
+  const env = { FIXTURE_VARIANT: "reworded" };
+  assert.equal((await run(dir, ["verify", "--fail-on", "high"], env)).code, 0);
+  const json = JSON.parse((await run(dir, ["verify", "--json"], env)).stdout);
+  const change = json.changes.find((c) => c.rule === "MK112");
+  assert.equal(change.severity, "medium");
+  assert.equal(change.policy[0].effect, "severity set from high to medium");
+  assert.deepEqual(json.policy, { path: join(dir, "mcpkeel.json"), entries: 1, unknownServers: [] });
+});
+
+test("a cross-field finding whose checks are all accepted is dropped, the field changes stay", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  withPolicy(dir, [{ rule: "MK209", server: "github", reason: "This server posts issues to a webhook by design." }]);
+  const changes = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "split" })).stdout).changes;
+  assert.ok(!changes.some((c) => c.kind === "tool.text.flagged"));
+  assert.ok(changes.some((c) => c.kind === "tool.description.changed"));
+});
+
+test("a policy is checked before it is trusted", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const cases = [
+    [{ rule: "MK207", server: "github" }, /"reason" must say why/],
+    [{ rule: "MK207", server: "github", severity: "low", reason: "A long enough reason." }, /a check code takes no "severity"/],
+    [{ rule: "MK112", server: "github", reason: "A long enough reason." }, /a change code needs "severity"/],
+    [{ rule: "MK199", server: "github", reason: "A long enough reason." }, /MK199 is not a code mcpkeel reports/],
+    [{ rule: "MK207", server: "github", subject: "create_issue", reason: "A long enough reason." }, /"subject" must look like "tool <name>"/],
+  ];
+  for (const [entry, message] of cases) {
+    withPolicy(dir, [entry]);
+    const result = await run(dir, ["verify"]);
+    assert.equal(result.code, 2, JSON.stringify(entry));
+    assert.match(result.stderr, message);
+  }
+  assert.equal((await run(dir, ["verify", "--policy", "nope.json"])).code, 2);
+
+  withPolicy(dir, [{ rule: "MK207", server: "gihtub", reason: "A typo in the server name." }]);
+  const typo = await run(dir, ["verify"]);
+  assert.equal(typo.code, 0);
+  assert.match(typo.stdout, /mcpkeel\.json: MK207 names server "gihtub", which is not in mcp\.lock, so it does nothing\./);
+});

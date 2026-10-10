@@ -54,6 +54,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | `--no-resolve` | Skips looking up the release each package launcher runs. See [What runs](#what-runs). |
 | `--fail-on <level>` | `verify`: the lowest severity that fails the run. The default is `low`, so any drift fails. |
 | `--report <file>` | Also appends a Markdown report to a file, for pull request bodies and job summaries. |
+| `--policy <file>` | Decisions about findings, each with a reason. Defaults to `mcpkeel.json` next to the lockfile. See [Decisions about findings](#decisions-about-findings). |
 | `--sarif <file>` | Also writes the changes as SARIF, for GitHub code scanning. See [Code scanning](#code-scanning). |
 | `--json` | Machine-readable output. |
 
@@ -247,6 +248,34 @@ Other things to know:
 - If the review cannot run (no key, or the API is down), `verify` keeps the rule-based severities and says so. A missing key never loosens the gate, which matters for pull requests from forks.
 - `--model <id>` or `MCPKEEL_MODEL` chooses the model. The default is `claude-sonnet-5-5`.
 - mcpkeel does not pass `ANTHROPIC_API_KEY` on to the servers it starts.
+
+## Decisions about findings
+
+Some findings are right and still not a problem: a file tool that documents which key files it refuses to read trips the check for secret files. Rather than turning a check off for everyone, write the decision down in `mcpkeel.json`, next to the lockfile, where it is reviewed in a pull request like the lockfile is:
+
+```json
+{
+  "accept": [
+    {
+      "rule": "MK207",
+      "server": "files",
+      "subject": "tool read_file",
+      "reason": "The tool lists the key files it refuses to read."
+    },
+    {
+      "rule": "MK105",
+      "server": "*",
+      "severity": "low",
+      "reason": "Server versions change on every release; the definitions are what we review."
+    }
+  ]
+}
+```
+
+- A check code (`MK2xx`) accepts that check for a server, or for one tool or prompt on it. The check's hit is taken off the change, which goes back to the severity it would have had without it. A changed description is still high.
+- A change code (`MK1xx`) sets the severity that kind of change gets. A change is never hidden; at most it is quieter.
+- `reason` is required. Every change a policy touched says so, with the reason, in the terminal, in JSON, in Markdown and in SARIF.
+- A policy with an unknown code, a missing reason or a malformed entry is an error, and an entry that names a server the lockfile does not have is reported, since it does nothing.
 
 ## In CI
 

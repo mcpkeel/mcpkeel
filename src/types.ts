@@ -88,6 +88,10 @@ export interface Change {
   severity: Severity;
   /** The severity the fixed rules assigned, kept when a review changed it. */
   ruleSeverity?: Severity;
+  /** The severity without the built-in check hits, when they raised it. */
+  baseSeverity?: Severity;
+  /** Policy entries that applied to this change. */
+  policy?: { rule: string; reason: string; effect: string }[];
   review?: ReviewOutcome;
   server: string;
   kind: string;
