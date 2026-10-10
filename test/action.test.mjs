@@ -187,3 +187,12 @@ test("action.yml runs the same mcpkeel version as package.json", () => {
   const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.match(readFileSync(join(root, "action.yml"), "utf8"), new RegExp(`default: "${version.replace(/\./g, "\\.")}"`));
 });
+
+test("verify mode writes SARIF when asked", { skip }, async () => {
+  const ws = workspace();
+  const sarif = join(ws.base, "results.sarif");
+  const drift = await action(ws, { MCPKEEL_MODE: "verify", MCPKEEL_SARIF: sarif, FIXTURE_VARIANT: "rugpull" });
+  assert.equal(drift.code, 1, drift.stderr);
+  const results = JSON.parse(read(sarif)).runs[0].results;
+  assert.ok(results.some((result) => result.ruleId === "MK112" && result.level === "error"));
+});

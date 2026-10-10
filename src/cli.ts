@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
 import { atLeast, crossServerNotes, diffEntries, diffLockfiles, scanServer } from "./diff.js";
+import { renderSarif, withCodes } from "./findings.js";
 import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
 import { packageRef } from "./resolve.js";
 import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
@@ -49,6 +50,9 @@ Options
                           runs. By default each one is pinned by version and
                           registry digest, so a new release fails verify even
                           when the definitions stay the same.
+      --sarif <file>      verify, diff: also write the changes as SARIF 2.1.0, for
+                          GitHub code scanning. Each carries a stable MK code
+                          and its OWASP MCP Top 10 category.
       --report <file>     verify, diff, update: also append a Markdown report to
                           <file>, for pull request bodies and job summaries
       --force             init: overwrite an existing lockfile
@@ -72,6 +76,7 @@ interface Options {
   explain: boolean;
   model: string;
   report?: string;
+  sarif?: string;
   probe: boolean;
   resolve: boolean;
   force: boolean;
@@ -95,6 +100,7 @@ async function main(argv: string[]): Promise<number> {
         explain: { type: "boolean" },
         model: { type: "string" },
         report: { type: "string" },
+        sarif: { type: "string" },
         probe: { type: "boolean" },
         "no-resolve": { type: "boolean" },
         force: { type: "boolean" },
@@ -128,6 +134,7 @@ async function main(argv: string[]): Promise<number> {
     explain: Boolean(values.explain),
     model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
     report: values.report ? resolve(cwd, values.report) : undefined,
+    sarif: values.sarif ? resolve(cwd, values.sarif) : undefined,
     probe: Boolean(values.probe),
     resolve: !values["no-resolve"],
     force: Boolean(values.force),
@@ -239,6 +246,7 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
     incomplete: incomplete.filter((step) => step.step !== "connect"),
     footer: reviewError ? "Review unavailable, so severities are rule-based only." : undefined,
   });
+  writeSarif(options, changes, options.lockfile);
 
   if (options.json) {
     return print(
@@ -250,7 +258,7 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
           lockfile: options.lockfile,
           summary: summarize(changes),
           servers: serverSummaries(results, changes),
-          changes,
+          changes: changes.map(withCodes),
           errors: errorList(results),
           complete: incomplete.length === 0,
           incomplete,
@@ -284,6 +292,7 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
   const after = readLockfile(resolve(options.cwd, newPath));
   const changes = diffLockfiles(before, after);
   if (options.explain) await review(changes, options, false);
+  writeSarif(options, changes, resolve(options.cwd, newPath));
 
   writeReport(options, {
     heading: changes.length ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: no changes",
@@ -291,7 +300,7 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
   });
 
   if (options.json) {
-    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes }, null, 2));
+    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes: changes.map(withCodes) }, null, 2));
   }
   const { p } = options;
   const out: string[] = [p.dim(`old  ${oldPath}`), p.dim(`new  ${newPath}`), ""];
@@ -336,7 +345,7 @@ async function update(options: Options, only: string[]): Promise<number> {
   if (options.json) {
     return print(
       JSON.stringify(
-        { ok: failed.length === 0, config: configPath, lockfile: options.lockfile, accepted: changes, errors: errorList(selected) },
+        { ok: failed.length === 0, config: configPath, lockfile: options.lockfile, accepted: changes.map(withCodes), errors: errorList(selected) },
         null,
         2,
       ),
@@ -450,6 +459,22 @@ function sortChanges(changes: Change[]): void {
         : 1
       : RANK[a.severity] - RANK[b.severity] || order.get(a)! - order.get(b)!,
   );
+}
+
+function writeSarif(options: Options, changes: Change[], lockfile: string): void {
+  if (!options.sarif) return;
+  let text = "";
+  try {
+    text = readFileSync(lockfile, "utf8");
+  } catch {
+    // A missing lockfile only costs the line numbers.
+  }
+  const uri = relative(options.cwd, lockfile).split(sep).join("/");
+  try {
+    writeFileSync(options.sarif, renderSarif({ version: VERSION, changes, lockfile: { uri: uri.startsWith("..") ? lockfile : uri, text } }));
+  } catch (err) {
+    throw new UserError(`Could not write SARIF to ${options.sarif}: ${(err as Error).message}`);
+  }
 }
 
 function writeReport(options: Options, report: Parameters<typeof renderMarkdown>[0]): void {

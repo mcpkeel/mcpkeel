@@ -16,7 +16,9 @@ inputs:
     description: The mcpkeel version to run from npm.
     default: "0.2.1"
   config:
-    description: Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json.
+    description: >-
+      Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json,
+      opencode.json, opencode.jsonc, .codex/config.toml, .gemini/settings.json.
     default: ""
   lockfile:
     description: Path to the lockfile.
@@ -38,6 +40,11 @@ inputs:
   probe:
     description: 'verify: read each server again later in the session and under another client name.'
     default: "false"
+  sarif:
+    description: >-
+      verify: also write the changes as SARIF to this path, for github/codeql-action/upload-sarif.
+      The file is written even when there is no drift.
+    default: ""
   timeout:
     description: Per-server timeout in seconds.
     default: "30"
@@ -80,6 +87,7 @@ runs:
         MCPKEEL_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         MCPKEEL_REVIEW_MODEL: ${{ inputs.model }}
         MCPKEEL_PROBE: ${{ inputs.probe }}
+        MCPKEEL_SARIF: ${{ inputs.sarif }}
         MCPKEEL_TIMEOUT: ${{ inputs.timeout }}
         MCPKEEL_BRANCH: ${{ inputs.branch }}
         MCPKEEL_BASE: ${{ inputs.base }}

@@ -54,6 +54,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | `--no-resolve` | Skips looking up the release each package launcher runs. See [What runs](#what-runs). |
 | `--fail-on <level>` | `verify`: the lowest severity that fails the run. The default is `low`, so any drift fails. |
 | `--report <file>` | Also appends a Markdown report to a file, for pull request bodies and job summaries. |
+| `--sarif <file>` | Also writes the changes as SARIF, for GitHub code scanning. See [Code scanning](#code-scanning). |
 | `--json` | Machine-readable output. |
 
 Run `mcpkeel --help` for every option.
@@ -122,6 +123,51 @@ The checks look at everything a model reads: descriptions, the server's instruct
 Each check is also run on the text with a disguise undone: read backwards, with letter spacing removed, with digits read as letters, in ROT13, with look-alike letters replaced, and with encoded runs decoded. A check describes what an attack says, not every way of writing it.
 
 These are pattern matches. A hit is a reason for a person to look, and a clean result is not proof that a description is safe. Instructions in another language, or paraphrased with care, pass them. That is what `--explain` is for.
+
+### Codes
+
+Every change and every built-in check has a code that keeps its meaning across versions, and the closest category of the [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/). Both appear in `--json` output (`rule`, `owasp`), in Markdown reports and in SARIF.
+
+| Code | What it reports | OWASP MCP Top 10 |
+| --- | --- | --- |
+| `MK101` | A server is in the config but not in the lockfile. | MCP09:2025 |
+| `MK102` | A pinned server is no longer in the config. | — |
+| `MK103` | The server's instructions changed. | MCP03:2025 |
+| `MK104` | The command or address that starts the server changed. | MCP04:2025 |
+| `MK105` | The version the server reports changed. | MCP04:2025 |
+| `MK106` | The launcher runs a different release of its package. | MCP04:2025 |
+| `MK107` | A published release now has different contents. | MCP04:2025 |
+| `MK110` | A tool was added. | MCP02:2025 |
+| `MK111` | A tool was removed. | — |
+| `MK112` | A tool's description changed. | MCP03:2025 |
+| `MK113` | A tool's title changed. | MCP03:2025 |
+| `MK114` | A tool's annotations changed, such as no longer being read-only. | MCP02:2025 |
+| `MK115` | A tool's input schema changed. | MCP03:2025 |
+| `MK116` | A tool's output schema changed. | MCP03:2025 |
+| `MK117` | A parameter was added. | MCP02:2025 |
+| `MK118` | A parameter was removed. | — |
+| `MK119` | A parameter's description changed. | MCP03:2025 |
+| `MK120` | Whether a parameter is required changed. | MCP03:2025 |
+| `MK121` | A parameter's type or constraints changed. | MCP03:2025 |
+| `MK122` | A tool's fields read together match an attack pattern. | MCP03:2025 |
+| `MK130` | A prompt was added. | MCP06:2025 |
+| `MK131` | A prompt changed. | MCP06:2025 |
+| `MK132` | A prompt was removed. | — |
+| `MK140` | The server changed its definitions partway through a session. | MCP03:2025 |
+| `MK141` | The server answers differently under another client name. | MCP03:2025 |
+| `MK201` | Invisible, control or bidirectional characters. | MCP06:2025 |
+| `MK202` | A word mixes letters from different alphabets. | MCP06:2025 |
+| `MK203` | Instruction-like markup. | MCP06:2025 |
+| `MK204` | Encoded text a model can decode. | MCP06:2025 |
+| `MK205` | Tells the model to disregard other instructions. | MCP06:2025 |
+| `MK206` | Tells the model to hide something from the user. | MCP06:2025 |
+| `MK207` | References credentials or secret files. | MCP01:2025 |
+| `MK208` | Tries to change how other tools are used. | MCP03:2025 |
+| `MK209` | Asks for data to be sent or passed along. | MCP10:2025 |
+| `MK210` | Asks for the conversation or the system prompt to be passed in. | MCP10:2025 |
+| `MK211` | Asks for keys, passwords or tokens the user has shared. | MCP01:2025 |
+| `MK212` | A parameter name reads like a sentence. | MCP03:2025 |
+| `MK213` | Text refers to a tool on another server. | MCP03:2025 |
 
 ## A second reading
 
@@ -266,6 +312,33 @@ jobs:
 The repository setting "Allow GitHub Actions to create and approve pull requests" has to be on. Pull requests opened with the default token do not start other workflows, so keep `verify` on a schedule as well.
 
 The report quotes text from the servers it checks. Nothing from a server is emitted as Markdown: names go in code spans, changed text in fenced blocks, and a reviewer's reason is escaped. A description cannot add a link, an image or a mention to your pull request.
+
+### Code scanning
+
+`--sarif <file>` writes the changes as SARIF 2.1.0, one result per change at the server or tool's line in `mcp.lock`. Uploaded to GitHub, each becomes a code-scanning alert that stays open until the drift is accepted or reverted.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: mcpkeel/mcpkeel@v0.3.0
+        with:
+          sarif: mcpkeel.sarif
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: mcpkeel.sarif
+```
+
+Code scanning is available on public repositories, and on private ones with GitHub Advanced Security.
 
 ### Without the action
 

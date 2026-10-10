@@ -55,6 +55,7 @@ case "$mode" in
     # macOS runners, treats an empty array as unset under `set -u`.
     args=(verify "${common[@]}" --fail-on "$fail_on" --report "$summary" ${review[@]+"${review[@]}"})
     if [ "$probe" = "true" ]; then args+=(--probe); fi
+    if [ -n "${MCPKEEL_SARIF:-}" ]; then args+=(--sarif "$MCPKEEL_SARIF"); fi
     set +e
     with_review "${args[@]}"
     code=$?

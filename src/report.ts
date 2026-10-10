@@ -1,3 +1,4 @@
+import { flagRule, kindRule } from "./findings.js";
 import { visible } from "./scan.js";
 import type { Change, Severity } from "./types.js";
 
@@ -149,7 +150,7 @@ export function renderMarkdown(report: MarkdownReport): string {
   for (const [server, changes] of byServer) {
     out.push(`### ${codeSpan(server)}`, "");
     for (const change of changes) {
-      out.push(`- **${LABEL[change.severity]}** ${codeSpan(change.subject)} ${escapeMarkdown(change.message)}`);
+      out.push(`- **${LABEL[change.severity]}** ${codeSpan(change.subject)} ${escapeMarkdown(change.message)} · ${kindRule(change.kind).code}`);
       if (change.before !== undefined || change.after !== undefined) {
         const [before, after] = excerptPair(change.before ?? "", change.after ?? "", 600);
         const lines: string[] = [];
@@ -157,7 +158,7 @@ export function renderMarkdown(report: MarkdownReport): string {
         if (change.after !== undefined && after) lines.push(`+ ${after}`);
         if (lines.length) out.push(...fenced(lines, "diff").map((line) => `  ${line}`));
       }
-      for (const flag of change.flags ?? []) out.push(`  - Flag: ${flag.label}: ${codeSpan(flag.excerpt)}`);
+      for (const flag of change.flags ?? []) out.push(`  - Flag ${flagRule(flag.id).code}: ${flag.label}: ${codeSpan(flag.excerpt)}`);
       if (change.review) {
         const effect =
           change.ruleSeverity && change.review.effect !== "kept"

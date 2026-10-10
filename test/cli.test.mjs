@@ -862,3 +862,53 @@ test("Codex and Gemini CLI remote servers keep their headers and transport", asy
     ],
   );
 });
+
+/* --------------------------------------------------------------- codes */
+
+test("verify --sarif writes code-scanning results with stable codes, OWASP categories and lockfile lines", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const sarifPath = join(dir, "mcpkeel.sarif");
+  const result = await run(dir, ["verify", "--sarif", sarifPath], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(result.code, 1);
+
+  const sarif = JSON.parse(readFileSync(sarifPath, "utf8"));
+  assert.equal(sarif.version, "2.1.0");
+  const [runLog] = sarif.runs;
+  assert.equal(runLog.tool.driver.name, "mcpkeel");
+  const poisoned = runLog.results.find((r) => r.ruleId === "MK112");
+  assert.equal(poisoned.level, "error");
+  assert.equal(poisoned.properties.owasp, "MCP03:2025");
+  assert.match(poisoned.message.text, /^github: tool create_issue description changed \(critical\)\./);
+  assert.match(poisoned.message.text, /MK203 instruction-like markup/);
+  // The result points at the tool's line in the lockfile.
+  const location = poisoned.locations[0].physicalLocation;
+  assert.equal(location.artifactLocation.uri, "mcp.lock");
+  const lines = readFileSync(join(dir, "mcp.lock"), "utf8").split("\n");
+  assert.equal(lines[location.region.startLine - 1], '        "create_issue": {');
+
+  const rule = runLog.tool.driver.rules.find((r) => r.id === "MK112");
+  assert.equal(rule.properties["security-severity"], "9.5");
+  assert.ok(rule.properties.tags.includes("owasp-mcp-top-10/MCP03:2025"));
+
+  // The same change keeps the same fingerprint, so code scanning tracks one alert.
+  await run(dir, ["verify", "--sarif", sarifPath], { FIXTURE_VARIANT: "rugpull" });
+  const again = JSON.parse(readFileSync(sarifPath, "utf8")).runs[0].results.find((r) => r.ruleId === "MK112");
+  assert.deepEqual(again.partialFingerprints, poisoned.partialFingerprints);
+
+  // A clean run writes an empty result list rather than nothing.
+  await run(dir, ["verify", "--sarif", sarifPath]);
+  assert.deepEqual(JSON.parse(readFileSync(sarifPath, "utf8")).runs[0].results, []);
+});
+
+test("JSON output carries the stable code and OWASP category of each change and flag", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const json = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "rugpull" })).stdout);
+  const change = json.changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.rule, "MK112");
+  assert.equal(change.owasp, "MCP03:2025");
+  const flag = change.flags.find((f) => f.id === "sensitive-paths");
+  assert.equal(flag.rule, "MK207");
+  assert.equal(flag.owasp, "MCP01:2025");
+});
