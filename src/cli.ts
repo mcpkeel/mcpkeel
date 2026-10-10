@@ -26,8 +26,10 @@ Usage
   mcpkeel update [server...]   Accept the current definitions and rewrite mcp.lock
 
 Options
-  -c, --config <path>     MCP config to read (default: .mcp.json, mcp.json,
-                          .cursor/mcp.json, .vscode/mcp.json)
+  -c, --config <path>     MCP config to read (default: the first of .mcp.json,
+                          mcp.json, .cursor/mcp.json, .vscode/mcp.json,
+                          opencode.json, opencode.jsonc, .codex/config.toml,
+                          .gemini/settings.json)
   -l, --lockfile <path>   Lockfile to read and write (default: mcp.lock)
       --fail-on <level>   verify: lowest severity that fails the run:
                           critical, high, medium or low (default: low)

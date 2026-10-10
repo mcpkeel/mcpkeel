@@ -62,12 +62,19 @@ Run `mcpkeel --help` for every option.
 
 mcpkeel reads the first of these it finds, or the file you pass with `--config`:
 
-- `.mcp.json` (Claude Code)
-- `mcp.json`
-- `.cursor/mcp.json` (Cursor)
-- `.vscode/mcp.json` (VS Code)
+| Client | File | Format |
+| --- | --- | --- |
+| Claude Code | `.mcp.json` | `mcpServers` |
+| Any | `mcp.json` | `mcpServers` or `servers` |
+| Cursor | `.cursor/mcp.json` | `mcpServers` |
+| VS Code | `.vscode/mcp.json` | `servers` |
+| opencode | `opencode.json`, `opencode.jsonc` | `mcp`, with `type: local` or `remote` |
+| Codex | `.codex/config.toml` | `[mcp_servers.<name>]` tables |
+| Gemini CLI | `.gemini/settings.json` | `mcpServers`, with `httpUrl` for Streamable HTTP |
 
-It understands `mcpServers` and `servers`, comments, `${VAR}` and `${VAR:-default}` references, local stdio servers, Streamable HTTP and SSE. A reference to an unset variable is an error, not an empty string.
+A server described in any of these files is pinned the same way, so moving it from one client's file to another's is not drift.
+
+Comments, local stdio servers, Streamable HTTP and SSE are supported, and so is each client's way of referring to the environment: `${VAR}`, `${VAR:-default}`, `${env:VAR}`, opencode's `{env:VAR}` and `{file:path}`, Gemini CLI's `$VAR`, and Codex's `env_http_headers` and `bearer_token_env_var`. A reference to an unset variable is an error, not an empty string. Servers marked disabled are skipped.
 
 A remote server whose host is, or resolves to, a link-local or cloud metadata address is refused before any request, and redirects from remote servers are not followed. On a CI runner, those addresses can hand out the runner's cloud credentials.
 

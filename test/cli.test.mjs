@@ -789,3 +789,76 @@ test("a remote server at a cloud metadata address is refused before any request"
   assert.equal(result.code, 2);
   assert.match(result.stdout, /refused: 169\.254\.169\.254 resolves to 169\.254\.169\.254, a link-local or cloud metadata address/);
 });
+
+/* ------------------------------------------------------------- clients */
+
+test("the same server reads the same from Claude Code, opencode, Codex and Gemini CLI configs", async () => {
+  const node = process.execPath;
+  const formats = {
+    ".mcp.json": JSON.stringify({ mcpServers: { github: { command: node, args: [FIXTURE], env: { FIXTURE_VARIANT: "${MCPKEEL_T_VARIANT}" } } } }),
+    "opencode.jsonc": `{
+      // opencode keeps the command and its arguments in one array.
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": { "github": { "type": "local", "command": [${JSON.stringify(node)}, ${JSON.stringify(FIXTURE)}], "environment": { "FIXTURE_VARIANT": "{env:MCPKEEL_T_VARIANT}" }, "enabled": true },
+               "off": { "type": "local", "command": ["nothing"], "enabled": false } },
+    }`,
+    ".codex/config.toml": [
+      "[mcp_servers.github]",
+      `command = ${JSON.stringify(node)}`,
+      `args = [${JSON.stringify(FIXTURE)}]`,
+      "",
+      "[mcp_servers.github.env]",
+      'FIXTURE_VARIANT = "${MCPKEEL_T_VARIANT}"',
+      "",
+      "[mcp_servers.off]",
+      'command = "nothing"',
+      "enabled = false",
+    ].join("\n"),
+    ".gemini/settings.json": JSON.stringify({ mcpServers: { github: { command: node, args: [FIXTURE], env: { FIXTURE_VARIANT: "$MCPKEEL_T_VARIANT" } } } }),
+  };
+
+  const base = project();
+  writeFileSync(join(base, ".mcp.json"), formats[".mcp.json"]);
+  const env = { MCPKEEL_T_VARIANT: "v1" };
+  assert.equal((await run(base, ["init"], env)).code, 0);
+  const lock = readFileSync(join(base, "mcp.lock"), "utf8");
+
+  for (const [file, text] of Object.entries(formats)) {
+    const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), text);
+    writeFileSync(join(dir, "mcp.lock"), lock);
+    const clean = await run(dir, ["verify"], env);
+    assert.equal(clean.code, 0, `${file}: ${clean.stdout}${clean.stderr}`);
+    assert.match(clean.stdout, new RegExp(`config  ${file.replace(/\./g, "\\.")}`));
+    // The environment reference is expanded, in each client's own syntax.
+    const drifted = await run(dir, ["verify"], { MCPKEEL_T_VARIANT: "rugpull" });
+    assert.equal(drifted.code, 1, file);
+  }
+});
+
+test("Codex and Gemini CLI remote servers keep their headers and transport", async () => {
+  const { loadConfig } = await import("../dist/config.js");
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  mkdirSync(join(dir, ".codex"));
+  writeFileSync(
+    join(dir, ".codex", "config.toml"),
+    '[mcp_servers.figma]\nurl = "https://mcp.example.com/mcp"\nbearer_token_env_var = "FIGMA_TOKEN"\nhttp_headers = { "X-Region" = "us" }\nenv_http_headers = { "X-Key" = "KEY_VAR" }\n',
+  );
+  assert.deepEqual(loadConfig(join(dir, ".codex", "config.toml")), [
+    { name: "figma", transport: "http", url: "https://mcp.example.com/mcp", headers: { "X-Region": "us", "X-Key": "${KEY_VAR}", Authorization: "Bearer ${FIGMA_TOKEN}" } },
+  ]);
+
+  mkdirSync(join(dir, ".gemini"));
+  writeFileSync(
+    join(dir, ".gemini", "settings.json"),
+    JSON.stringify({ mcpServers: { sse: { url: "http://localhost:8080/sse" }, http: { httpUrl: "http://localhost:3000/mcp", headers: { Authorization: "Bearer $TOKEN" } } } }),
+  );
+  assert.deepEqual(
+    loadConfig(join(dir, ".gemini", "settings.json")).map(({ name, transport, headers }) => ({ name, transport, headers })),
+    [
+      { name: "http", transport: "http", headers: { Authorization: "Bearer ${TOKEN}" } },
+      { name: "sse", transport: "sse", headers: {} },
+    ],
+  );
+});

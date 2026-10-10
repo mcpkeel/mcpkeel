@@ -36,7 +36,7 @@ export interface PackagePin {
 export interface ServerEntry {
   transport: Transport;
   /** How the server is reached, as written in the config. Never env values or headers. */
-  source: { command?: string; args?: string[]; url?: string };
+  source: { command?: string; args?: string[]; cwd?: string; url?: string };
   /** The package the command runs, when mcpkeel can resolve it. Not part of `integrity`. */
   package?: PackagePin;
   serverInfo?: { name?: string; version?: string };
@@ -59,6 +59,8 @@ export interface ServerSpec {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /** Working directory for a stdio server, as written in the config. */
+  cwd?: string;
   url?: string;
   headers?: Record<string, string>;
 }

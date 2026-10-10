@@ -247,6 +247,7 @@ function createTransport(spec: ServerSpec, options: SnapshotOptions, stderrTail:
       command: expandEnv(spec.command ?? ""),
       args: (spec.args ?? []).map((arg) => expandEnv(arg)),
       env,
+      cwd: spec.cwd ? expandEnv(spec.cwd) : undefined,
       stderr: options.verbose ? "inherit" : "pipe",
     });
     transport.stderr?.on("data", (chunk: Buffer) => {
