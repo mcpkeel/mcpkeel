@@ -984,3 +984,66 @@ test("a policy is checked before it is trusted", async () => {
   assert.equal(typo.code, 0);
   assert.match(typo.stdout, /mcpkeel\.json: MK207 names server "gihtub", which is not in mcp\.lock, so it does nothing\./);
 });
+
+/* ------------------------------------------------- OpenAI-compatible review */
+
+/** A stand-in for an OpenAI-compatible chat completions endpoint. */
+async function mockOpenAI(t, decide) {
+  const calls = [];
+  const api = createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls.push({ url: req.url, headers: req.headers, body });
+    const items = JSON.parse(unwrap(body.messages[0].content, body.messages[1].content));
+    const verdicts = items.map((item) => ({ index: item.index, ...decide(item) }));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: JSON.stringify(verdicts) } }] }));
+  });
+  await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
+  t.after(() => api.close());
+  return { calls, url: `http://127.0.0.1:${api.address().port}/v1` };
+}
+
+test("--provider openai reviews through any OpenAI-compatible endpoint, under the same limits", async (t) => {
+  const api = await mockOpenAI(t, () => ({ verdict: "cosmetic", reason: "Harmless." }));
+  const dir = project();
+  const dump = join(dir, "server-env.json");
+  const config = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"));
+  config.mcpServers.github.env.FIXTURE_ENV_DUMP = dump;
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify(config));
+  await run(dir, ["init"]);
+
+  const env = { FIXTURE_VARIANT: "rugpull", OPENAI_API_KEY: "sk-openai-test", MCPKEEL_REVIEW_API_KEY: "" };
+  const args = ["verify", "--explain", "--provider", "openai", "--review-url", api.url, "--model", "local-model", "--json"];
+  const result = await run(dir, args, env);
+  assert.equal(result.code, 1);
+
+  const [call] = api.calls;
+  assert.equal(call.url, "/v1/chat/completions");
+  assert.equal(call.headers.authorization, "Bearer sk-openai-test");
+  assert.equal(call.body.model, "local-model");
+  assert.equal(call.body.temperature, 0);
+  // Talked into "cosmetic", the reviewer still cannot lower what a check flagged.
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.deepEqual(change.review, { by: "openai", model: "local-model", verdict: "cosmetic", reason: "Harmless.", effect: "kept" });
+  // The reviewer's key is not handed to the server being checked.
+  assert.ok(!JSON.parse(readFileSync(dump, "utf8")).includes("OPENAI_API_KEY"));
+
+  const text = await run(dir, args.slice(0, -1), env);
+  assert.match(text.stdout, /Review by local-model: cosmetic\. Harmless\./);
+});
+
+test("--provider openai says what is missing", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "rugpull", OPENAI_API_KEY: "", MCPKEEL_REVIEW_API_KEY: "" };
+  const noModel = await run(dir, ["diff", "--explain", "--provider", "openai"], env);
+  assert.equal(noModel.code, 2);
+  assert.match(noModel.stderr, /--provider openai needs --model/);
+  const noKey = await run(dir, ["diff", "--explain", "--provider", "openai", "--model", "m"], env);
+  assert.equal(noKey.code, 2);
+  assert.match(noKey.stderr, /needs a key\. Set MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY/);
+  assert.match((await run(dir, ["verify", "--provider", "nope"])).stderr, /--provider must be anthropic or openai/);
+});

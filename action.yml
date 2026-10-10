@@ -35,7 +35,16 @@ inputs:
     description: Claude API key for explain. It is given to mcpkeel only, never to the MCP servers it starts.
     default: ""
   model:
-    description: Model for explain. Defaults to mcpkeel's own default.
+    description: Model for explain. Defaults to mcpkeel's own default for Claude; required with provider openai.
+    default: ""
+  provider:
+    description: 'Reviewer for explain: anthropic, or openai for any OpenAI-compatible endpoint.'
+    default: ""
+  review-url:
+    description: Base URL of the reviewer's API, for a gateway or a self-hosted model server.
+    default: ""
+  review-api-key:
+    description: Key for provider openai. Like anthropic-api-key, it is given to mcpkeel only, never to the MCP servers it starts.
     default: ""
   probe:
     description: 'verify: read each server again later in the session and under another client name.'
@@ -86,6 +95,9 @@ runs:
         MCPKEEL_EXPLAIN: ${{ inputs.explain }}
         MCPKEEL_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         MCPKEEL_REVIEW_MODEL: ${{ inputs.model }}
+        MCPKEEL_PROVIDER: ${{ inputs.provider }}
+        MCPKEEL_REVIEW_URL: ${{ inputs.review-url }}
+        MCPKEEL_REVIEW_KEY: ${{ inputs.review-api-key }}
         MCPKEEL_PROBE: ${{ inputs.probe }}
         MCPKEEL_SARIF: ${{ inputs.sarif }}
         MCPKEEL_TIMEOUT: ${{ inputs.timeout }}

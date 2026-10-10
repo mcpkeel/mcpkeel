@@ -50,7 +50,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | Option | What it adds |
 | --- | --- |
 | `--probe` | Reads each server two more times, to catch servers that change their answer. See [A second reading](#a-second-reading). |
-| `--explain` | Has Claude read each changed text and adjust its severity. See [A review from Claude](#a-review-from-claude). |
+| `--explain` | Has Claude, or another model with `--provider openai`, read each changed text and adjust its severity. See [A review from Claude](#a-review-from-claude). |
 | `--no-resolve` | Skips looking up the release each package launcher runs. See [What runs](#what-runs). |
 | `--fail-on <level>` | `verify`: the lowest severity that fails the run. The default is `low`, so any drift fails. |
 | `--report <file>` | Also appends a Markdown report to a file, for pull request bodies and job summaries. |
@@ -248,6 +248,20 @@ Other things to know:
 - If the review cannot run (no key, or the API is down), `verify` keeps the rule-based severities and says so. A missing key never loosens the gate, which matters for pull requests from forks.
 - `--model <id>` or `MCPKEEL_MODEL` chooses the model. The default is `claude-sonnet-5-5`.
 - mcpkeel does not pass `ANTHROPIC_API_KEY` on to the servers it starts.
+- The text sent for review sits between tags with a random id, new for every request, so it cannot pose as the end of the data.
+
+### Other models
+
+`--provider openai` sends the same review to any endpoint that speaks the OpenAI chat completions API: a hosted model, a gateway, or a model server on your own machine, so nothing leaves it.
+
+```sh
+npx mcpkeel verify --explain --provider openai --review-url http://localhost:11434/v1 --model <model>
+```
+
+- `--model` is required: mcpkeel does not guess what an endpoint serves.
+- The key is read from `MCPKEEL_REVIEW_API_KEY`, then `OPENAI_API_KEY`. A local endpoint needs none. Either way, it is not passed on to the servers mcpkeel starts.
+- The prompt, the delimiter and every limit above are the same. A smaller model is easier to talk into "cosmetic", which is why lowering never depends on the model alone.
+- Reports name the model that judged each change: `Review by <model>: …`.
 
 ## Decisions about findings
 

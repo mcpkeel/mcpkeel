@@ -9,7 +9,7 @@ import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
 import { POLICY_NAME, applyPolicy, readPolicy, unknownServers, type Policy } from "./policy.js";
 import { packageRef } from "./resolve.js";
 import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
-import { DEFAULT_MODEL, applyReviews, claudeReviewer, reviewable } from "./review.js";
+import { DEFAULT_MODEL, applyReviews, claudeReviewer, openaiReviewer, reviewable } from "./review.js";
 import { visible } from "./scan.js";
 import { snapshotAll, type SnapshotResult } from "./snapshot.js";
 import { SEVERITIES, type Change, type Lockfile, type ServerEntry, type ServerSpec, type Severity } from "./types.js";
@@ -42,6 +42,12 @@ Options
                           Needs ANTHROPIC_API_KEY. Sends only the changed
                           definitions to the Claude API.
       --model <id>        Model for --explain (default: ${DEFAULT_MODEL})
+      --provider <name>   Reviewer for --explain: anthropic (default) or openai,
+                          for any OpenAI-compatible endpoint. openai needs
+                          --model, and MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY
+                          unless the endpoint is local.
+      --review-url <url>  Base URL of the reviewer's API, such as
+                          http://localhost:11434/v1 for a local model server
       --probe             init, verify, diff: read each server twice more. Once after
                           five calls to a tool that does not exist, to catch servers
                           that change their definitions partway through a session.
@@ -78,7 +84,9 @@ interface Options {
   lockfile: string;
   failOn: Severity;
   explain: boolean;
-  model: string;
+  provider: "anthropic" | "openai";
+  model: string | undefined;
+  reviewUrl?: string;
   report?: string;
   sarif?: string;
   /** An explicit --policy path; otherwise mcpkeel.json next to the lockfile is read if it exists. */
@@ -105,6 +113,8 @@ async function main(argv: string[]): Promise<number> {
         "fail-on": { type: "string" },
         explain: { type: "boolean" },
         model: { type: "string" },
+        provider: { type: "string" },
+        "review-url": { type: "string" },
         report: { type: "string" },
         sarif: { type: "string" },
         policy: { type: "string" },
@@ -132,6 +142,9 @@ async function main(argv: string[]): Promise<number> {
   const timeoutSecs = Number(values.timeout ?? "30");
   if (!Number.isFinite(timeoutSecs) || timeoutSecs <= 0) throw new UserError("--timeout must be a positive number of seconds.");
 
+  const provider = (values.provider ?? process.env.MCPKEEL_PROVIDER ?? "anthropic").toLowerCase();
+  if (provider !== "anthropic" && provider !== "openai") throw new UserError("--provider must be anthropic or openai.");
+
   const cwd = process.cwd();
   const color = !values["no-color"] && !values.json && !process.env.NO_COLOR && (process.stdout.isTTY || Boolean(process.env.FORCE_COLOR));
   const options: Options = {
@@ -139,7 +152,10 @@ async function main(argv: string[]): Promise<number> {
     lockfile: resolve(cwd, values.lockfile ?? LOCKFILE_NAME),
     failOn,
     explain: Boolean(values.explain),
-    model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
+    provider,
+    // Claude has a default model. An OpenAI-compatible endpoint can serve anything, so the model is named.
+    model: values.model ?? process.env.MCPKEEL_MODEL ?? (provider === "anthropic" ? DEFAULT_MODEL : undefined),
+    reviewUrl: values["review-url"] ?? process.env.MCPKEEL_REVIEW_URL,
     report: values.report ? resolve(cwd, values.report) : undefined,
     sarif: values.sarif ? resolve(cwd, values.sarif) : undefined,
     policy: values.policy ? resolve(cwd, values.policy) : undefined,
@@ -410,6 +426,8 @@ async function snapshot(options: Options): Promise<{ specs: ServerSpec[]; result
     verbose: options.verbose,
     version: VERSION,
     probe: options.probe,
+    // The reviewer's key is mcpkeel's own, so the servers it starts do not get it.
+    hiddenEnv: options.explain && options.provider === "openai" ? ["OPENAI_API_KEY"] : [],
     resolve: options.resolve
       ? { timeoutMs: options.timeoutMs, npmRegistry: process.env.MCPKEEL_NPM_REGISTRY, pypiUrl: process.env.MCPKEEL_PYPI_URL }
       : false,
@@ -446,13 +464,20 @@ function toLockfile(results: SnapshotResult[]): Lockfile {
 async function review(changes: Change[], options: Options, lenient: boolean): Promise<string | undefined> {
   const targets = reviewable(changes);
   if (targets.length === 0) return undefined;
-  const reviewer = claudeReviewer({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: options.model,
-    baseUrl: process.env.ANTHROPIC_BASE_URL,
-  });
+  const reviewer =
+    options.provider === "openai"
+      ? openaiReviewer({
+          apiKey: process.env.MCPKEEL_REVIEW_API_KEY || process.env.OPENAI_API_KEY || undefined,
+          model: options.model,
+          baseUrl: options.reviewUrl ?? process.env.OPENAI_BASE_URL,
+        })
+      : claudeReviewer({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: options.model ?? DEFAULT_MODEL,
+          baseUrl: options.reviewUrl ?? process.env.ANTHROPIC_BASE_URL,
+        });
   if (!options.json && process.stderr.isTTY) {
-    process.stderr.write(options.p.dim(`Asking Claude (${reviewer.model}) to review ${plural(targets.length, "change")}…\n`));
+    process.stderr.write(options.p.dim(`Asking ${reviewer.name === "claude" ? "Claude" : "the reviewer"} (${reviewer.model}) to review ${plural(targets.length, "change")}…\n`));
   }
   try {
     applyReviews(targets, await reviewer.review(targets), reviewer);

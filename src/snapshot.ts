@@ -14,6 +14,8 @@ export interface SnapshotOptions {
   version: string;
   /** Also check that the server gives the same answer later in the session, and to another client. */
   probe?: boolean;
+  /** More variables that are mcpkeel's own for this run, such as the key of the reviewer in use. */
+  hiddenEnv?: string[];
   /** Look up the release each package launcher runs. `false` skips it on purpose. */
   resolve?: ResolveOptions | false;
 }
@@ -44,7 +46,7 @@ export type SnapshotResult =
  * Credentials that are mcpkeel's own. A server being inspected is not handed
  * them, unless the config passes one on by name in that server's `env`.
  */
-const OWN_SECRETS = new Set(["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]);
+const OWN_SECRETS = new Set(["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "MCPKEEL_REVIEW_API_KEY"]);
 
 /** The name mcpkeel introduces itself with. */
 const CLIENT_NAME = "mcpkeel";
@@ -240,7 +242,7 @@ function createTransport(spec: ServerSpec, options: SnapshotOptions, stderrTail:
   if (spec.transport === "stdio") {
     const env: Record<string, string> = {};
     for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined && !OWN_SECRETS.has(key)) env[key] = value;
+      if (value !== undefined && !OWN_SECRETS.has(key) && !options.hiddenEnv?.includes(key)) env[key] = value;
     }
     for (const [key, value] of Object.entries(spec.env ?? {})) env[key] = expandEnv(value);
     const transport = new StdioClientTransport({

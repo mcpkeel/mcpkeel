@@ -65,9 +65,10 @@ export function renderChange(change: Change, p: Palette): string {
   return lines.join("\n");
 }
 
+/** "Claude", or the model that answered, so a report always says who judged. */
 function reviewerName(change: Change): string {
-  const by = change.review?.by ?? "review";
-  return by.charAt(0).toUpperCase() + by.slice(1);
+  if (!change.review || change.review.by === "claude") return "Claude";
+  return `Review by ${visible(change.review.model)}`;
 }
 
 function effectNote(change: Change, p: Palette): string {
@@ -169,7 +170,7 @@ export function renderMarkdown(report: MarkdownReport): string {
           change.ruleSeverity && change.review.effect !== "kept"
             ? ` Severity ${change.review.effect} from ${change.ruleSeverity}.`
             : "";
-        out.push(`  - ${reviewerName(change)}: **${change.review.verdict}**. ${escapeMarkdown(change.review.reason)}${effect}`);
+        out.push(`  - ${escapeMarkdown(reviewerName(change))}: **${change.review.verdict}**. ${escapeMarkdown(change.review.reason)}${effect}`);
       }
       for (const entry of change.policy ?? []) out.push(`  - Policy ${entry.rule}: ${escapeMarkdown(entry.effect)}. ${escapeMarkdown(entry.reason)}`);
     }

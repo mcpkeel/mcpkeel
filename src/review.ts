@@ -96,9 +96,10 @@ export interface ClaudeOptions {
 }
 
 /**
- * Review through the Claude API. This is the only code path in mcpkeel that
- * sends anything off the machine. It runs only when asked for, and sends only
- * the changed definitions: never the config, env values or headers.
+ * Review through the Claude API. This and the OpenAI-compatible reviewer are
+ * the only code paths in mcpkeel that send anything off the machine. They run
+ * only when asked for, and send only the changed definitions: never the
+ * config, env values or headers.
  */
 export function claudeReviewer(options: ClaudeOptions): Reviewer {
   return {
@@ -108,59 +109,111 @@ export function claudeReviewer(options: ClaudeOptions): Reviewer {
       if (!options.apiKey) {
         throw new UserError("--explain needs a Claude API key. Set ANTHROPIC_API_KEY (create one at https://platform.claude.com).");
       }
-      const payload = changes.map((change, index) => ({
-        index,
-        server: change.server,
-        what: `${change.subject} ${change.message}`,
-        before: clip(change.before),
-        after: clip(change.after),
-        parameter_text: clip(change.context),
-      }));
-
       const tag = newTag();
       const base = (options.baseUrl ?? "https://api.anthropic.com").replace(/\/+$/, "");
-      let response: Response;
-      try {
-        response = await fetch(`${base}/v1/messages`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-api-key": options.apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: options.model,
-            max_tokens: 2048,
-            system: systemPrompt(tag),
-            messages: [{ role: "user", content: untrustedBlock(payload, tag) }],
-          }),
-          signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
-        });
-      } catch (err) {
-        throw new UserError(`Could not reach the Claude API: ${(err as Error).message}`);
-      }
-
-      const body = await response.text();
-      if (!response.ok) {
-        let detail = body.slice(0, 300);
-        try {
-          detail = (JSON.parse(body) as { error?: { message?: string } }).error?.message ?? detail;
-        } catch {
-          // Keep the raw body.
-        }
-        throw new UserError(`Claude API returned ${response.status}: ${detail}`);
-      }
-
-      let text = "";
-      try {
-        const message = JSON.parse(body) as { content?: { type: string; text?: string }[] };
-        text = (message.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("");
-      } catch {
-        throw new UserError("Claude API returned a response mcpkeel could not read.");
-      }
+      const message = (await postJson(
+        "Claude API",
+        `${base}/v1/messages`,
+        { "x-api-key": options.apiKey, "anthropic-version": "2023-06-01" },
+        {
+          model: options.model,
+          max_tokens: 2048,
+          system: systemPrompt(tag),
+          messages: [{ role: "user", content: untrustedBlock(reviewPayload(changes), tag) }],
+        },
+        options.timeoutMs,
+      )) as { content?: { type: string; text?: string }[] };
+      const text = (message.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("");
       return parseReviews(text, changes.length);
     },
   };
+}
+
+export interface OpenAIOptions {
+  apiKey: string | undefined;
+  model: string | undefined;
+  /** Any server that speaks the OpenAI chat completions API: OpenAI, a gateway, or a local model server. */
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+/**
+ * Review through any OpenAI-compatible chat completions endpoint. The same
+ * prompt, the same random delimiter and the same limits on lowering apply as
+ * with Claude: the limits live in applyReviews, not in the reviewer.
+ */
+export function openaiReviewer(options: OpenAIOptions): Reviewer {
+  const base = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+  return {
+    name: "openai",
+    model: options.model ?? "",
+    async review(changes: Change[]): Promise<Review[]> {
+      if (!options.model) throw new UserError("--provider openai needs --model, the model to ask.");
+      // A local model server usually needs no key; a hosted one does.
+      if (!options.apiKey && new URL(base).hostname === "api.openai.com") {
+        throw new UserError("--provider openai needs a key. Set MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY.");
+      }
+      const tag = newTag();
+      const reply = (await postJson(
+        "Review endpoint",
+        `${base}/chat/completions`,
+        options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {},
+        {
+          model: options.model,
+          temperature: 0,
+          messages: [
+            { role: "system", content: systemPrompt(tag) },
+            { role: "user", content: untrustedBlock(reviewPayload(changes), tag) },
+          ],
+        },
+        options.timeoutMs,
+      )) as { choices?: { message?: { content?: string | null } }[] };
+      return parseReviews(reply.choices?.[0]?.message?.content ?? "", changes.length);
+    },
+  };
+}
+
+/** What a reviewer is shown about each change. */
+function reviewPayload(changes: Change[]): unknown[] {
+  return changes.map((change, index) => ({
+    index,
+    server: change.server,
+    what: `${change.subject} ${change.message}`,
+    before: clip(change.before),
+    after: clip(change.after),
+    parameter_text: clip(change.context),
+  }));
+}
+
+/** POST JSON and read JSON back. A redirect is an error, so a key is only ever sent to the host it was meant for. */
+async function postJson(label: string, url: string, headers: Record<string, string>, body: unknown, timeoutMs = 60_000): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw new UserError(`Could not reach the ${label}: ${(err as Error).message}`);
+  }
+  const text = await response.text();
+  if (!response.ok) {
+    let detail = text.slice(0, 300);
+    try {
+      detail = (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? detail;
+    } catch {
+      // Keep the raw body.
+    }
+    throw new UserError(`${label} returned ${response.status}: ${detail}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new UserError(`${label} returned a response mcpkeel could not read.`);
+  }
 }
 
 export function parseReviews(text: string, count: number): Review[] {
