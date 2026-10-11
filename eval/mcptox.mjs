@@ -10,6 +10,8 @@
 //   npm run build && node eval/mcptox.mjs [--write]
 //
 // --write saves the summary to eval/results/mcptox.json.
+// --check compares this run with that file and exits 1 if mcpkeel now reports
+// fewer poisoned tools, or flags more real ones. CI runs it on every change.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -151,6 +153,21 @@ for (const [id, count] of Object.entries(byCheck).sort((a, b) => b[1] - a[1])) c
 if (flaggedBenign.length) {
   console.log("\nReal tools flagged:");
   for (const row of flaggedBenign) console.log(`  ${row.server} / ${row.tool}: ${row.checks.join(", ")}`);
+}
+
+if (process.argv.includes("--check")) {
+  const baseline = JSON.parse(readFileSync(join(here, "results", "mcptox.json"), "utf8"));
+  const regressions = [];
+  if (summary.attacks.drift.reportedAtHighOrAbove < baseline.attacks.drift.reportedAtHighOrAbove) regressions.push("fewer poisoned tools reported as drift at high or above");
+  if (summary.attacks.drift.critical < baseline.attacks.drift.critical) regressions.push("fewer poisoned tools graded critical");
+  if (summary.attacks.flagged < baseline.attacks.flagged) regressions.push("fewer poisoned tools flagged by the built-in checks");
+  if (summary.benign.flagged > baseline.benign.flagged) regressions.push("more real tools flagged by mistake");
+  if (regressions.length) {
+    console.error(`\nRegression against eval/results/mcptox.json: ${regressions.join("; ")}.`);
+    process.exit(1);
+  }
+  const improved = summary.attacks.flagged > baseline.attacks.flagged || summary.benign.flagged < baseline.benign.flagged;
+  console.log(`\nNo regression against eval/results/mcptox.json.${improved ? " This run is better: update the baseline with --write." : ""}`);
 }
 
 if (process.argv.includes("--write")) {
