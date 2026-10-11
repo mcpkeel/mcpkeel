@@ -1,6 +1,6 @@
 import { canonicalJson } from "./canonical.js";
 import { collectAllText, collectSchemaText, excerptAround, newFlags, scanText, schemaStrings, sentenceLikeName } from "./scan.js";
-import type { Change, Flag, Lockfile, PromptEntry, ServerEntry, Severity, ToolEntry } from "./types.js";
+import type { Change, Flag, Lockfile, PackagePin, PromptEntry, ServerEntry, Severity, ToolEntry } from "./types.js";
 
 const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
@@ -36,7 +36,7 @@ export function diffLockfiles(before: Lockfile, after: Lockfile, skip: ReadonlyS
       const flags = scanServer(b).flatMap((hit) => hit.flags);
       const toolCount = Object.keys(b.tools).length;
       changes.push({
-        severity: flags.length ? "critical" : "high",
+        ...graded(flags, "high"),
         server: name,
         kind: "server.added",
         subject: "server",
@@ -63,7 +63,7 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
   if ((a.instructions ?? "") !== (b.instructions ?? "")) {
     const flags = newFlags(a.instructions, b.instructions);
     push({
-      severity: flags.length ? "critical" : "high",
+      ...graded(flags, "high"),
       kind: "server.instructions.changed",
       subject: "server instructions",
       message: !a.instructions ? "added" : !b.instructions ? "removed" : "changed",
@@ -82,7 +82,7 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
     } else if (!ta && tb) {
       const flags = scanTool(tb);
       push({
-        severity: flags.length ? "critical" : "high",
+        ...graded(flags, "high"),
         kind: "tool.added",
         subject,
         message: "added",
@@ -104,7 +104,7 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
     } else if (!pa && pb) {
       const flags = scanText(promptText(pb));
       push({
-        severity: flags.length ? "critical" : "medium",
+        ...graded(flags, "medium"),
         kind: "prompt.added",
         subject,
         message: "added",
@@ -114,7 +114,7 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
     } else if (pa && pb && canonicalJson(strip(pa)) !== canonicalJson(strip(pb))) {
       const flags = newFlags(promptText(pa), promptText(pb));
       push({
-        severity: flags.length ? "critical" : "medium",
+        ...graded(flags, "medium"),
         kind: "prompt.changed",
         subject,
         message: "changed",
@@ -149,7 +149,48 @@ function diffServer(server: string, a: ServerEntry, b: ServerEntry): Change[] {
       after: describeSource(b),
     });
   }
+  // A lockfile written before packages were pinned has no pin to compare. That
+  // is not drift; the pin is added the next time the lockfile is written.
+  if (a.package && b.package) {
+    const pa = a.package;
+    const pb = b.package;
+    const same = pa.ecosystem === pb.ecosystem && pa.name === pb.name;
+    if (same && pa.version === pb.version && pa.integrity !== pb.integrity) {
+      // Registries do not let a published version change. When it has, the
+      // code is not the code that was reviewed.
+      push({
+        severity: "critical",
+        kind: "server.package.tampered",
+        subject: `package ${pb.name}`,
+        message: `${pb.version} now has different contents`,
+        before: pa.integrity,
+        after: pb.integrity,
+      });
+    } else if (!same || pa.version !== pb.version) {
+      push({
+        severity: "high",
+        kind: "server.package.changed",
+        subject: `package ${pb.name}`,
+        message: `runs a different release: ${describePackage(pa)} → ${describePackage(pb)}`,
+        before: `${describePackage(pa)} ${pa.integrity}`,
+        after: `${describePackage(pb)} ${pb.integrity}`,
+      });
+    }
+  }
   return changes;
+}
+
+/**
+ * A built-in check hit makes a change critical. The severity it would have had
+ * without one is kept, so a check a policy accepts can be taken back out.
+ */
+function graded(flags: Flag[], base: Severity): { severity: Severity; baseSeverity?: Severity } {
+  return flags.length ? { severity: "critical", baseSeverity: base } : { severity: base };
+}
+
+function describePackage(pin: PackagePin): string {
+  if (pin.ecosystem === "oci") return `${pin.name}${pin.version ? `:${pin.version}` : ""}`;
+  return `${pin.name}@${pin.version}`;
 }
 
 function origin(url: string | undefined): string | undefined {
@@ -164,7 +205,7 @@ function diffTool(subject: string, a: ToolEntry, b: ToolEntry): Omit<Change, "se
   if ((a.description ?? "") !== (b.description ?? "")) {
     const flags = newFlags(a.description, b.description);
     changes.push({
-      severity: flags.length ? "critical" : "high",
+      ...graded(flags, "high"),
       kind: "tool.description.changed",
       subject,
       message: "description changed",
@@ -262,7 +303,7 @@ function diffSchema(subject: string, a: unknown, b: unknown): Omit<Change, "serv
       const flags = scanParam(name, pb);
       const isRequired = requiredB.has(name);
       changes.push({
-        severity: flags.length ? "critical" : isRequired ? "high" : "medium",
+        ...graded(flags, isRequired ? "high" : "medium"),
         kind: "tool.param.added",
         subject,
         message: `${isRequired ? "required" : "optional"} ${param} added`,
@@ -293,6 +334,7 @@ function diffSchema(subject: string, a: unknown, b: unknown): Omit<Change, "serv
         });
       }
       if (emitted[0] && flags.length) {
+        emitted[0].baseSeverity = emitted[0].severity;
         emitted[0].severity = "critical";
         emitted[0].flags = flags;
       }
@@ -312,7 +354,7 @@ function diffSchema(subject: string, a: unknown, b: unknown): Omit<Change, "serv
     // Something outside `properties` moved: a top-level description, $defs, additionalProperties.
     const flags = newFlags(collectAllText(a), collectAllText(b));
     changes.push({
-      severity: flags.length ? "critical" : "medium",
+      ...graded(flags, "medium"),
       kind: "tool.inputSchema.changed",
       subject,
       message: "input schema changed",
@@ -387,6 +429,7 @@ function applyCrossServer(changes: Change[], after: Lockfile): void {
     }
     if (found.length) {
       change.flags = [...(change.flags ?? []), ...found];
+      if (change.severity !== "critical") change.baseSeverity = change.severity;
       change.severity = "critical";
     }
   }

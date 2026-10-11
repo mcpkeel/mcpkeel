@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -656,4 +656,406 @@ test("with no config at all, says where it looked", async () => {
   assert.equal(result.code, 2);
   assert.match(result.stderr, /No MCP config found/);
   assert.match(result.stderr, /--config/);
+});
+
+/* ------------------------------------------------------------ packages */
+
+/** A stand-in for the npm registry, serving one package whose releases a test can change. */
+async function mockNpm(t, state) {
+  const requests = [];
+  const api = createServer((req, res) => {
+    requests.push(req.url);
+    if (state.down) {
+      res.writeHead(503);
+      return res.end();
+    }
+    if (req.url !== "/demo-mcp") {
+      res.writeHead(404);
+      return res.end();
+    }
+    const versions = Object.fromEntries(Object.entries(state.releases).map(([version, digest]) => [version, { dist: { integrity: digest } }]));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ "dist-tags": { latest: state.latest }, versions }));
+  });
+  await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
+  t.after(() => api.close());
+  return { requests, env: { MCPKEEL_NPM_REGISTRY: `http://127.0.0.1:${api.address().port}` } };
+}
+
+/** A project whose server is launched as `npx -y demo-mcp`, with an `npx` on PATH that starts the fixture instead of fetching anything. */
+function npxProject(spec = "demo-mcp") {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  const bin = join(dir, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "npx"), `#!/bin/sh\nexec "${process.execPath}" "${FIXTURE}"\n`);
+  chmodSync(join(bin, "npx"), 0o755);
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { demo: { command: "npx", args: ["-y", spec] } } }));
+  return { dir, env: { PATH: `${bin}:${process.env.PATH}` } };
+}
+
+const SHA_A = "sha512-" + "A".repeat(86) + "==";
+const SHA_B = "sha512-" + "B".repeat(86) + "==";
+
+test("init pins the release npx runs, and a new release fails verify though the definitions are the same", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+
+  assert.equal((await run(dir, ["init"], all)).code, 0);
+  const lock = JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8"));
+  assert.deepEqual(lock.servers.demo.package, { ecosystem: "npm", name: "demo-mcp", version: "1.0.0", integrity: SHA_A });
+  assert.equal((await run(dir, ["verify"], all)).code, 0);
+
+  state.latest = "1.0.1";
+  state.releases["1.0.1"] = SHA_B;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 1);
+  const [change] = JSON.parse(result.stdout).changes;
+  assert.equal(change.kind, "server.package.changed");
+  assert.equal(change.severity, "high");
+  assert.equal(change.message, "runs a different release: demo-mcp@1.0.0 → demo-mcp@1.0.1");
+});
+
+test("a published release whose contents changed is critical", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject("demo-mcp@1.0.0");
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+
+  state.releases["1.0.0"] = SHA_B;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 1);
+  const [change] = JSON.parse(result.stdout).changes;
+  assert.equal(change.kind, "server.package.tampered");
+  assert.equal(change.severity, "critical");
+});
+
+test("a registry that cannot be reached leaves verify incomplete, and --no-resolve skips the lookup on purpose", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+
+  state.down = true;
+  const result = await run(dir, ["verify", "--json"], all);
+  assert.equal(result.code, 2);
+  const json = JSON.parse(result.stdout);
+  // The pin is not reported as removed: the lookup did not run, and that is what is reported.
+  assert.deepEqual(json.changes, []);
+  assert.deepEqual(json.incomplete.map((s) => s.step), ["resolve"]);
+  assert.match(json.incomplete[0].reason, /could not look up npm package demo-mcp/);
+
+  const before = npm.requests.length;
+  const skipped = await run(dir, ["verify", "--no-resolve", "--json"], all);
+  assert.equal(skipped.code, 0);
+  assert.equal(JSON.parse(skipped.stdout).complete, true);
+  assert.equal(npm.requests.length, before);
+});
+
+test("a lockfile from before package pins is not drift", async (t) => {
+  const state = { latest: "1.0.0", releases: { "1.0.0": SHA_A } };
+  const npm = await mockNpm(t, state);
+  const { dir, env } = npxProject();
+  const all = { ...env, ...npm.env };
+  await run(dir, ["init"], all);
+  const lock = JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8"));
+  delete lock.servers.demo.package;
+  writeFileSync(join(dir, "mcp.lock"), JSON.stringify(lock));
+
+  const result = await run(dir, ["verify"], all);
+  assert.equal(result.code, 0, result.stdout);
+  assert.match(result.stdout, /demo: the package that runs is not pinned in mcp\.lock yet\. `mcpkeel update` adds the pin\./);
+  const updated = await run(dir, ["update"], all);
+  assert.match(updated.stdout, /Pinned the package that runs for demo\. Nothing else changed\./);
+  assert.equal(JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8")).servers.demo.package.version, "1.0.0");
+});
+
+test("a version range cannot be pinned, and init says so", async (t) => {
+  const npm = await mockNpm(t, { latest: "1.2.0", releases: { "1.2.0": SHA_A } });
+  const { dir, env } = npxProject("demo-mcp@^1.0.0");
+  const result = await run(dir, ["init"], { ...env, ...npm.env });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /demo-mcp@\^1\.0\.0 is a range or an unknown tag/);
+  assert.equal(JSON.parse(readFileSync(join(dir, "mcp.lock"), "utf8")).servers.demo.package, undefined);
+});
+
+test("a remote server at a cloud metadata address is refused before any request", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { meta: { type: "http", url: "http://169.254.169.254/mcp" } } }));
+  const result = await run(dir, ["init"], {});
+  assert.equal(result.code, 2);
+  assert.match(result.stdout, /refused: 169\.254\.169\.254 resolves to 169\.254\.169\.254, a link-local or cloud metadata address/);
+});
+
+/* ------------------------------------------------------------- clients */
+
+test("the same server reads the same from Claude Code, opencode, Codex and Gemini CLI configs", async () => {
+  const node = process.execPath;
+  const formats = {
+    ".mcp.json": JSON.stringify({ mcpServers: { github: { command: node, args: [FIXTURE], env: { FIXTURE_VARIANT: "${MCPKEEL_T_VARIANT}" } } } }),
+    "opencode.jsonc": `{
+      // opencode keeps the command and its arguments in one array.
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": { "github": { "type": "local", "command": [${JSON.stringify(node)}, ${JSON.stringify(FIXTURE)}], "environment": { "FIXTURE_VARIANT": "{env:MCPKEEL_T_VARIANT}" }, "enabled": true },
+               "off": { "type": "local", "command": ["nothing"], "enabled": false } },
+    }`,
+    ".codex/config.toml": [
+      "[mcp_servers.github]",
+      `command = ${JSON.stringify(node)}`,
+      `args = [${JSON.stringify(FIXTURE)}]`,
+      "",
+      "[mcp_servers.github.env]",
+      'FIXTURE_VARIANT = "${MCPKEEL_T_VARIANT}"',
+      "",
+      "[mcp_servers.off]",
+      'command = "nothing"',
+      "enabled = false",
+    ].join("\n"),
+    ".gemini/settings.json": JSON.stringify({ mcpServers: { github: { command: node, args: [FIXTURE], env: { FIXTURE_VARIANT: "$MCPKEEL_T_VARIANT" } } } }),
+  };
+
+  const base = project();
+  writeFileSync(join(base, ".mcp.json"), formats[".mcp.json"]);
+  const env = { MCPKEEL_T_VARIANT: "v1" };
+  assert.equal((await run(base, ["init"], env)).code, 0);
+  const lock = readFileSync(join(base, "mcp.lock"), "utf8");
+
+  for (const [file, text] of Object.entries(formats)) {
+    const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), text);
+    writeFileSync(join(dir, "mcp.lock"), lock);
+    const clean = await run(dir, ["verify"], env);
+    assert.equal(clean.code, 0, `${file}: ${clean.stdout}${clean.stderr}`);
+    assert.match(clean.stdout, new RegExp(`config  ${file.replace(/\./g, "\\.")}`));
+    // The environment reference is expanded, in each client's own syntax.
+    const drifted = await run(dir, ["verify"], { MCPKEEL_T_VARIANT: "rugpull" });
+    assert.equal(drifted.code, 1, file);
+  }
+});
+
+test("Codex and Gemini CLI remote servers keep their headers and transport", async () => {
+  const { loadConfig } = await import("../dist/config.js");
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  mkdirSync(join(dir, ".codex"));
+  writeFileSync(
+    join(dir, ".codex", "config.toml"),
+    '[mcp_servers.figma]\nurl = "https://mcp.example.com/mcp"\nbearer_token_env_var = "FIGMA_TOKEN"\nhttp_headers = { "X-Region" = "us" }\nenv_http_headers = { "X-Key" = "KEY_VAR" }\n',
+  );
+  assert.deepEqual(loadConfig(join(dir, ".codex", "config.toml")), [
+    { name: "figma", transport: "http", url: "https://mcp.example.com/mcp", headers: { "X-Region": "us", "X-Key": "${KEY_VAR}", Authorization: "Bearer ${FIGMA_TOKEN}" } },
+  ]);
+
+  mkdirSync(join(dir, ".gemini"));
+  writeFileSync(
+    join(dir, ".gemini", "settings.json"),
+    JSON.stringify({ mcpServers: { sse: { url: "http://localhost:8080/sse" }, http: { httpUrl: "http://localhost:3000/mcp", headers: { Authorization: "Bearer $TOKEN" } } } }),
+  );
+  assert.deepEqual(
+    loadConfig(join(dir, ".gemini", "settings.json")).map(({ name, transport, headers }) => ({ name, transport, headers })),
+    [
+      { name: "http", transport: "http", headers: { Authorization: "Bearer ${TOKEN}" } },
+      { name: "sse", transport: "sse", headers: {} },
+    ],
+  );
+});
+
+/* --------------------------------------------------------------- codes */
+
+test("verify --sarif writes code-scanning results with stable codes, OWASP categories and lockfile lines", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const sarifPath = join(dir, "mcpkeel.sarif");
+  const result = await run(dir, ["verify", "--sarif", sarifPath], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(result.code, 1);
+
+  const sarif = JSON.parse(readFileSync(sarifPath, "utf8"));
+  assert.equal(sarif.version, "2.1.0");
+  const [runLog] = sarif.runs;
+  assert.equal(runLog.tool.driver.name, "mcpkeel");
+  const poisoned = runLog.results.find((r) => r.ruleId === "MK112");
+  assert.equal(poisoned.level, "error");
+  assert.equal(poisoned.properties.owasp, "MCP03:2025");
+  assert.match(poisoned.message.text, /^github: tool create_issue description changed \(critical\)\./);
+  assert.match(poisoned.message.text, /MK203 instruction-like markup/);
+  // The result points at the tool's line in the lockfile.
+  const location = poisoned.locations[0].physicalLocation;
+  assert.equal(location.artifactLocation.uri, "mcp.lock");
+  const lines = readFileSync(join(dir, "mcp.lock"), "utf8").split("\n");
+  assert.equal(lines[location.region.startLine - 1], '        "create_issue": {');
+
+  const rule = runLog.tool.driver.rules.find((r) => r.id === "MK112");
+  assert.equal(rule.properties["security-severity"], "9.5");
+  assert.ok(rule.properties.tags.includes("owasp-mcp-top-10/MCP03:2025"));
+
+  // The same change keeps the same fingerprint, so code scanning tracks one alert.
+  await run(dir, ["verify", "--sarif", sarifPath], { FIXTURE_VARIANT: "rugpull" });
+  const again = JSON.parse(readFileSync(sarifPath, "utf8")).runs[0].results.find((r) => r.ruleId === "MK112");
+  assert.deepEqual(again.partialFingerprints, poisoned.partialFingerprints);
+
+  // A clean run writes an empty result list rather than nothing.
+  await run(dir, ["verify", "--sarif", sarifPath]);
+  assert.deepEqual(JSON.parse(readFileSync(sarifPath, "utf8")).runs[0].results, []);
+});
+
+test("JSON output carries the stable code and OWASP category of each change and flag", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const json = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "rugpull" })).stdout);
+  const change = json.changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.rule, "MK112");
+  assert.equal(change.owasp, "MCP03:2025");
+  const flag = change.flags.find((f) => f.id === "sensitive-paths");
+  assert.equal(flag.rule, "MK207");
+  assert.equal(flag.owasp, "MCP01:2025");
+});
+
+/* -------------------------------------------------------------- policy */
+
+function withPolicy(dir, accept) {
+  writeFileSync(join(dir, "mcpkeel.json"), JSON.stringify({ accept }));
+}
+
+test("a policy accepts a check for one tool, and the change goes back to its severity without it", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const reason = "The tool documents which key files it refuses to read.";
+
+  // Accepting one of three checks leaves the change critical.
+  withPolicy(dir, [{ rule: "MK207", server: "github", subject: "tool create_issue", reason }]);
+  let change = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "rugpull" })).stdout).changes.find((c) => c.rule === "MK112");
+  assert.equal(change.severity, "critical");
+  assert.ok(!change.flags.some((f) => f.rule === "MK207"));
+  assert.deepEqual(change.policy, [{ rule: "MK207", reason, effect: "check accepted" }]);
+
+  // Accepting all of them leaves a high description change: still reported, still failing by default.
+  withPolicy(dir, ["MK203", "MK206", "MK207"].map((rule) => ({ rule, server: "github", subject: "tool create_issue", reason })));
+  const result = await run(dir, ["verify"], { FIXTURE_VARIANT: "rugpull" });
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /HIGH\s+tool create_issue description changed/);
+  assert.match(result.stdout, /Policy MK207: check accepted\. The tool documents which key files it refuses to read\./);
+});
+
+test("a policy sets the severity of a kind of change, and never hides it", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  withPolicy(dir, [{ rule: "MK112", server: "*", severity: "medium", reason: "Descriptions here are rewritten often and reviewed in the PR." }]);
+  const env = { FIXTURE_VARIANT: "reworded" };
+  assert.equal((await run(dir, ["verify", "--fail-on", "high"], env)).code, 0);
+  const json = JSON.parse((await run(dir, ["verify", "--json"], env)).stdout);
+  const change = json.changes.find((c) => c.rule === "MK112");
+  assert.equal(change.severity, "medium");
+  assert.equal(change.policy[0].effect, "severity set from high to medium");
+  assert.deepEqual(json.policy, { path: join(dir, "mcpkeel.json"), entries: 1, unknownServers: [] });
+});
+
+test("a cross-field finding whose checks are all accepted is dropped, the field changes stay", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  withPolicy(dir, [{ rule: "MK209", server: "github", reason: "This server posts issues to a webhook by design." }]);
+  const changes = JSON.parse((await run(dir, ["verify", "--json"], { FIXTURE_VARIANT: "split" })).stdout).changes;
+  assert.ok(!changes.some((c) => c.kind === "tool.text.flagged"));
+  assert.ok(changes.some((c) => c.kind === "tool.description.changed"));
+});
+
+test("a policy is checked before it is trusted", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const cases = [
+    [{ rule: "MK207", server: "github" }, /"reason" must say why/],
+    [{ rule: "MK207", server: "github", severity: "low", reason: "A long enough reason." }, /a check code takes no "severity"/],
+    [{ rule: "MK112", server: "github", reason: "A long enough reason." }, /a change code needs "severity"/],
+    [{ rule: "MK199", server: "github", reason: "A long enough reason." }, /MK199 is not a code mcpkeel reports/],
+    [{ rule: "MK207", server: "github", subject: "create_issue", reason: "A long enough reason." }, /"subject" must look like "tool <name>"/],
+  ];
+  for (const [entry, message] of cases) {
+    withPolicy(dir, [entry]);
+    const result = await run(dir, ["verify"]);
+    assert.equal(result.code, 2, JSON.stringify(entry));
+    assert.match(result.stderr, message);
+  }
+  assert.equal((await run(dir, ["verify", "--policy", "nope.json"])).code, 2);
+
+  withPolicy(dir, [{ rule: "MK207", server: "gihtub", reason: "A typo in the server name." }]);
+  const typo = await run(dir, ["verify"]);
+  assert.equal(typo.code, 0);
+  assert.match(typo.stdout, /mcpkeel\.json: MK207 names server "gihtub", which is not in mcp\.lock, so it does nothing\./);
+});
+
+/* ------------------------------------------------- OpenAI-compatible review */
+
+/** A stand-in for an OpenAI-compatible chat completions endpoint. */
+async function mockOpenAI(t, decide) {
+  const calls = [];
+  const api = createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls.push({ url: req.url, headers: req.headers, body });
+    const items = JSON.parse(unwrap(body.messages[0].content, body.messages[1].content));
+    const verdicts = items.map((item) => ({ index: item.index, ...decide(item) }));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: JSON.stringify(verdicts) } }] }));
+  });
+  await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
+  t.after(() => api.close());
+  return { calls, url: `http://127.0.0.1:${api.address().port}/v1` };
+}
+
+test("--provider openai reviews through any OpenAI-compatible endpoint, under the same limits", async (t) => {
+  const api = await mockOpenAI(t, () => ({ verdict: "cosmetic", reason: "Harmless." }));
+  const dir = project();
+  const dump = join(dir, "server-env.json");
+  const config = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"));
+  config.mcpServers.github.env.FIXTURE_ENV_DUMP = dump;
+  writeFileSync(join(dir, ".mcp.json"), JSON.stringify(config));
+  await run(dir, ["init"]);
+
+  const env = { FIXTURE_VARIANT: "rugpull", OPENAI_API_KEY: "sk-openai-test", MCPKEEL_REVIEW_API_KEY: "" };
+  const args = ["verify", "--explain", "--provider", "openai", "--review-url", api.url, "--model", "local-model", "--json"];
+  const result = await run(dir, args, env);
+  assert.equal(result.code, 1);
+
+  const [call] = api.calls;
+  assert.equal(call.url, "/v1/chat/completions");
+  assert.equal(call.headers.authorization, "Bearer sk-openai-test");
+  assert.equal(call.body.model, "local-model");
+  assert.equal(call.body.temperature, 0);
+  // Talked into "cosmetic", the reviewer still cannot lower what a check flagged.
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.severity, "critical");
+  assert.deepEqual(change.review, { by: "openai", model: "local-model", verdict: "cosmetic", reason: "Harmless.", effect: "kept" });
+  // The reviewer's key is not handed to the server being checked.
+  assert.ok(!JSON.parse(readFileSync(dump, "utf8")).includes("OPENAI_API_KEY"));
+
+  const text = await run(dir, args.slice(0, -1), env);
+  assert.match(text.stdout, /Review by local-model: cosmetic\. Harmless\./);
+});
+
+test("--provider openai says what is missing", async () => {
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "rugpull", OPENAI_API_KEY: "", MCPKEEL_REVIEW_API_KEY: "" };
+  const noModel = await run(dir, ["diff", "--explain", "--provider", "openai"], env);
+  assert.equal(noModel.code, 2);
+  assert.match(noModel.stderr, /--provider openai needs --model/);
+  const noKey = await run(dir, ["diff", "--explain", "--provider", "openai", "--model", "m"], env);
+  assert.equal(noKey.code, 2);
+  assert.match(noKey.stderr, /needs a key\. Set MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY/);
+  assert.match((await run(dir, ["verify", "--provider", "nope"])).stderr, /--provider must be anthropic or openai/);
+});
+
+test("demo pins a local server, watches it change, and shows verify failing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  const result = await run(dir, ["demo"]);
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /Wrote mcp\.lock: 1 server, 2 tools pinned\./);
+  assert.match(result.stdout, /CRITICAL\s+tool send_email description changed/);
+  assert.match(result.stdout, /HIGH\s+tool search_notes description changed/);
+  assert.match(result.stdout, /verify exited 1, so the build fails/);
+  // Nothing is left in the directory it ran from.
+  assert.ok(!existsSync(join(dir, "mcp.lock")) && !existsSync(join(dir, ".mcp.json")));
 });

@@ -17,7 +17,8 @@ output="${GITHUB_OUTPUT:-/dev/null}"
 # them. The API key is passed to mcpkeel alone, which does not pass it on.
 token="${MCPKEEL_GITHUB_TOKEN:-}"
 api_key="${MCPKEEL_ANTHROPIC_API_KEY:-}"
-unset MCPKEEL_GITHUB_TOKEN MCPKEEL_ANTHROPIC_API_KEY
+review_key="${MCPKEEL_REVIEW_KEY:-}"
+unset MCPKEEL_GITHUB_TOKEN MCPKEEL_ANTHROPIC_API_KEY MCPKEEL_REVIEW_KEY
 
 die() {
   echo "::error::$1"
@@ -34,7 +35,9 @@ mcpkeel() {
 }
 
 with_review() {
-  if [ -n "$api_key" ]; then
+  if [ -n "$review_key" ]; then
+    MCPKEEL_REVIEW_API_KEY="$review_key" mcpkeel "$@"
+  elif [ -n "$api_key" ]; then
     ANTHROPIC_API_KEY="$api_key" mcpkeel "$@"
   else
     mcpkeel "$@"
@@ -47,6 +50,8 @@ review=()
 if [ "$explain" = "true" ]; then
   review+=(--explain)
   if [ -n "${MCPKEEL_REVIEW_MODEL:-}" ]; then review+=(--model "$MCPKEEL_REVIEW_MODEL"); fi
+  if [ -n "${MCPKEEL_PROVIDER:-}" ]; then review+=(--provider "$MCPKEEL_PROVIDER"); fi
+  if [ -n "${MCPKEEL_REVIEW_URL:-}" ]; then review+=(--review-url "$MCPKEEL_REVIEW_URL"); fi
 fi
 
 case "$mode" in
@@ -55,6 +60,7 @@ case "$mode" in
     # macOS runners, treats an empty array as unset under `set -u`.
     args=(verify "${common[@]}" --fail-on "$fail_on" --report "$summary" ${review[@]+"${review[@]}"})
     if [ "$probe" = "true" ]; then args+=(--probe); fi
+    if [ -n "${MCPKEEL_SARIF:-}" ]; then args+=(--sarif "$MCPKEEL_SARIF"); fi
     set +e
     with_review "${args[@]}"
     code=$?

@@ -1,0 +1,108 @@
+{
+  "benchmark": {
+    "name": "MCPTox",
+    "repository": "https://github.com/zhiqiangwang4/MCPTox-Benchmark",
+    "commit": "f85189f9ad12504c197c7f920ab818a40657b1fa",
+    "files": {
+      "pure_tool.json": "54b1eb0e9d7b2f18465266aa9d9dfda828cd558b1269b74731ec2c5d8579e617",
+      "response_all.json": "79a90049be931c59e71446d6180b1d7f0d196d123d08a59bc155d142b5041c03"
+    }
+  },
+  "mcpkeel": "0.3.0",
+  "what": "Built-in checks only, no model review. `flagged`: a check fires on the tool as `mcpkeel init` reads it. `drift`: the server is pinned with its real tools and the poisoned tool then appears, as `mcpkeel verify` sees it.",
+  "attacks": {
+    "total": 485,
+    "drift": {
+      "reportedAtHighOrAbove": 485,
+      "critical": 50,
+      "rate": 100
+    },
+    "flagged": 50,
+    "rate": 10.3,
+    "byTemplate": {
+      "Template-1": {
+        "total": 77,
+        "flagged": 10,
+        "rate": 13
+      },
+      "Template-2": {
+        "total": 183,
+        "flagged": 24,
+        "rate": 13.1
+      },
+      "Template-3": {
+        "total": 225,
+        "flagged": 16,
+        "rate": 7.1
+      }
+    },
+    "byRisk": {
+      "Code Injection": {
+        "total": 22,
+        "flagged": 0,
+        "rate": 0
+      },
+      "Credential Leakage": {
+        "total": 40,
+        "flagged": 20,
+        "rate": 50
+      },
+      "Data Tampering": {
+        "total": 45,
+        "flagged": 7,
+        "rate": 15.6
+      },
+      "Financial Loss": {
+        "total": 21,
+        "flagged": 2,
+        "rate": 9.5
+      },
+      "Information Manipulation": {
+        "total": 108,
+        "flagged": 4,
+        "rate": 3.7
+      },
+      "Infrastructure Damage": {
+        "total": 41,
+        "flagged": 8,
+        "rate": 19.5
+      },
+      "Instruction Tampering": {
+        "total": 21,
+        "flagged": 0,
+        "rate": 0
+      },
+      "Message Hijacking": {
+        "total": 15,
+        "flagged": 0,
+        "rate": 0
+      },
+      "Other": {
+        "total": 2,
+        "flagged": 0,
+        "rate": 0
+      },
+      "Privacy Leakage": {
+        "total": 97,
+        "flagged": 9,
+        "rate": 9.3
+      },
+      "Service Disruption": {
+        "total": 73,
+        "flagged": 0,
+        "rate": 0
+      }
+    },
+    "byCheck": {
+      "encoded-content": 1,
+      "sensitive-paths": 40,
+      "conceal-from-user": 10
+    }
+  },
+  "benign": {
+    "total": 362,
+    "flagged": 0,
+    "rate": 0,
+    "flaggedTools": []
+  }
+}

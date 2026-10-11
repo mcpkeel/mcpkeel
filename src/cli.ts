@@ -1,12 +1,18 @@
 #!/usr/bin/env node
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { basename, relative, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
 import { atLeast, crossServerNotes, diffEntries, diffLockfiles, scanServer } from "./diff.js";
+import { renderSarif, withCodes } from "./findings.js";
 import { LOCKFILE_NAME, readLockfile, writeLockfile } from "./lockfile.js";
+import { POLICY_NAME, applyPolicy, readPolicy, unknownServers, type Policy } from "./policy.js";
+import { packageRef } from "./resolve.js";
 import { palette, plural, renderChange, renderMarkdown, summarize, summaryLine, type Palette } from "./report.js";
-import { DEFAULT_MODEL, applyReviews, claudeReviewer, reviewable } from "./review.js";
+import { DEFAULT_MODEL, applyReviews, claudeReviewer, openaiReviewer, reviewable } from "./review.js";
 import { visible } from "./scan.js";
 import { snapshotAll, type SnapshotResult } from "./snapshot.js";
 import { SEVERITIES, type Change, type Lockfile, type ServerEntry, type ServerSpec, type Severity } from "./types.js";
@@ -20,13 +26,16 @@ Pin what your MCP servers tell your agent, and find out when it changes.
 Usage
   mcpkeel init                 Snapshot every server in your MCP config into mcp.lock
   mcpkeel verify               Compare live servers against mcp.lock; exit 1 on drift
-  mcpkeel diff                 Show what changed, with severity (always exits 0)
+  mcpkeel diff                 Show what changed, with severity (exits 0 unless incomplete)
   mcpkeel diff <old> <new>     Compare two lockfiles without contacting any server
   mcpkeel update [server...]   Accept the current definitions and rewrite mcp.lock
+  mcpkeel demo                 Watch mcpkeel catch a rug pull, on a local demo server
 
 Options
-  -c, --config <path>     MCP config to read (default: .mcp.json, mcp.json,
-                          .cursor/mcp.json, .vscode/mcp.json)
+  -c, --config <path>     MCP config to read (default: the first of .mcp.json,
+                          mcp.json, .cursor/mcp.json, .vscode/mcp.json,
+                          opencode.json, opencode.jsonc, .codex/config.toml,
+                          .gemini/settings.json)
   -l, --lockfile <path>   Lockfile to read and write (default: mcp.lock)
       --fail-on <level>   verify: lowest severity that fails the run:
                           critical, high, medium or low (default: low)
@@ -37,11 +46,27 @@ Options
                           Needs ANTHROPIC_API_KEY. Sends only the changed
                           definitions to the Claude API.
       --model <id>        Model for --explain (default: ${DEFAULT_MODEL})
+      --provider <name>   Reviewer for --explain: anthropic (default) or openai,
+                          for any OpenAI-compatible endpoint. openai needs
+                          --model, and MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY
+                          unless the endpoint is local.
+      --review-url <url>  Base URL of the reviewer's API, such as
+                          http://localhost:11434/v1 for a local model server
       --probe             init, verify, diff: read each server twice more. Once after
                           five calls to a tool that does not exist, to catch servers
                           that change their definitions partway through a session.
                           Once under another client name, to catch servers that
                           answer a checker differently from an agent.
+      --no-resolve        Do not look up the release that npx, uvx, pipx or docker
+                          runs. By default each one is pinned by version and
+                          registry digest, so a new release fails verify even
+                          when the definitions stay the same.
+      --sarif <file>      verify, diff: also write the changes as SARIF 2.1.0, for
+                          GitHub code scanning. Each carries a stable MK code
+                          and its OWASP MCP Top 10 category.
+      --policy <file>     verify, diff: decisions about findings, each with a
+                          reason (default: mcpkeel.json next to the lockfile,
+                          when it exists). See the README.
       --report <file>     verify, diff, update: also append a Markdown report to
                           <file>, for pull request bodies and job summaries
       --force             init: overwrite an existing lockfile
@@ -63,14 +88,21 @@ interface Options {
   lockfile: string;
   failOn: Severity;
   explain: boolean;
-  model: string;
+  provider: "anthropic" | "openai";
+  model: string | undefined;
+  reviewUrl?: string;
   report?: string;
+  sarif?: string;
+  /** An explicit --policy path; otherwise mcpkeel.json next to the lockfile is read if it exists. */
+  policy?: string;
   probe: boolean;
+  resolve: boolean;
   force: boolean;
   timeoutMs: number;
   json: boolean;
   verbose: boolean;
   cwd: string;
+  color: boolean;
   p: Palette;
 }
 
@@ -86,8 +118,13 @@ async function main(argv: string[]): Promise<number> {
         "fail-on": { type: "string" },
         explain: { type: "boolean" },
         model: { type: "string" },
+        provider: { type: "string" },
+        "review-url": { type: "string" },
         report: { type: "string" },
+        sarif: { type: "string" },
+        policy: { type: "string" },
         probe: { type: "boolean" },
+        "no-resolve": { type: "boolean" },
         force: { type: "boolean" },
         timeout: { type: "string" },
         json: { type: "boolean" },
@@ -110,6 +147,9 @@ async function main(argv: string[]): Promise<number> {
   const timeoutSecs = Number(values.timeout ?? "30");
   if (!Number.isFinite(timeoutSecs) || timeoutSecs <= 0) throw new UserError("--timeout must be a positive number of seconds.");
 
+  const provider = (values.provider ?? process.env.MCPKEEL_PROVIDER ?? "anthropic").toLowerCase();
+  if (provider !== "anthropic" && provider !== "openai") throw new UserError("--provider must be anthropic or openai.");
+
   const cwd = process.cwd();
   const color = !values["no-color"] && !values.json && !process.env.NO_COLOR && (process.stdout.isTTY || Boolean(process.env.FORCE_COLOR));
   const options: Options = {
@@ -117,14 +157,21 @@ async function main(argv: string[]): Promise<number> {
     lockfile: resolve(cwd, values.lockfile ?? LOCKFILE_NAME),
     failOn,
     explain: Boolean(values.explain),
-    model: values.model ?? process.env.MCPKEEL_MODEL ?? DEFAULT_MODEL,
+    provider,
+    // Claude has a default model. An OpenAI-compatible endpoint can serve anything, so the model is named.
+    model: values.model ?? process.env.MCPKEEL_MODEL ?? (provider === "anthropic" ? DEFAULT_MODEL : undefined),
+    reviewUrl: values["review-url"] ?? process.env.MCPKEEL_REVIEW_URL,
     report: values.report ? resolve(cwd, values.report) : undefined,
+    sarif: values.sarif ? resolve(cwd, values.sarif) : undefined,
+    policy: values.policy ? resolve(cwd, values.policy) : undefined,
     probe: Boolean(values.probe),
+    resolve: !values["no-resolve"],
     force: Boolean(values.force),
     timeoutMs: timeoutSecs * 1000,
     json: Boolean(values.json),
     verbose: Boolean(values.verbose),
     cwd,
+    color,
     p: palette(color),
   };
 
@@ -139,9 +186,68 @@ async function main(argv: string[]): Promise<number> {
       return compare(options, "diff");
     case "update":
       return update(options, rest);
+    case "demo":
+      return demo(options);
     default:
       throw new UserError(`Unknown command "${command}".\nRun \`mcpkeel --help\` for usage.`);
   }
+}
+
+/* ------------------------------------------------------------------ demo */
+
+/**
+ * Pin a local demo server, let it change the way a compromised release would,
+ * and run verify. Everything happens in a temporary directory, with a server
+ * that ships with mcpkeel, so nothing touches the network or the current project.
+ */
+async function demo(options: Options): Promise<number> {
+  const { p } = options;
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-demo-"));
+  const server = fileURLToPath(new URL("./demo-server.js", import.meta.url));
+  const cli = fileURLToPath(import.meta.url);
+  const writeConfig = (stage: string): void =>
+    writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { notes: { command: process.execPath, args: [server], env: { MCPKEEL_DEMO_STAGE: stage } } } }, null, 2));
+  const step = (args: string[]): { code: number; out: string } => {
+    const child = spawnSync(process.execPath, [cli, ...args, ...(options.color ? [] : ["--no-color"])], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, ...(options.color ? { FORCE_COLOR: "1" } : {}) },
+    });
+    return { code: child.status ?? 2, out: `${child.stdout}${child.stderr}`.trimEnd() };
+  };
+
+  try {
+    print(p.bold("1. A notes server you reviewed and trust. mcpkeel pins what it tells your agent:"));
+    writeConfig("clean");
+    const init = step(["init"]);
+    print(`${indent(init.out)}
+`);
+    if (init.code !== 0) return init.code;
+
+    print(p.bold("2. A new release of the server ships. Same name, same command, new tool descriptions."));
+    print(p.bold("   Your agent would read them as instructions. In CI, `mcpkeel verify` runs:"));
+    writeConfig("poisoned");
+    const verify = step(["verify"]);
+    print(`${indent(verify.out)}
+`);
+
+    if (verify.code !== 1) {
+      print(p.red(`The demo expected verify to exit 1, and it exited ${verify.code}.`));
+      return 2;
+    }
+    print(p.bold(`3. verify exited 1, so the build fails before an agent sees the new text.`));
+    print("   Try it on your own servers: npx mcpkeel init, commit mcp.lock, run npx mcpkeel verify in CI.");
+    return 0;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function indent(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line ? `   ${line}` : line))
+    .join("\n");
 }
 
 /* ------------------------------------------------------------------ init */
@@ -195,10 +301,15 @@ async function init(options: Options): Promise<number> {
 
 async function compare(options: Options, mode: "verify" | "diff"): Promise<number> {
   const locked = readLockfile(options.lockfile);
-  const { results, configPath } = await snapshot(options);
+  const { specs, results, configPath } = await snapshot(options);
+  keepLockedPins(specs, results, locked, options);
   const failed = results.filter((r) => !r.ok);
   const changes = diffLockfiles(locked, toLockfile(results), new Set(failed.map((r) => r.name)));
   changes.push(...probeChanges(results));
+  const policy = loadPolicy(options);
+  const strays = policy ? unknownServers(policy, locked) : [];
+  const kept = policy ? applyPolicy(changes, policy) : changes;
+  changes.splice(0, changes.length, ...kept);
   sortChanges(changes);
   // In verify, a review that cannot run leaves the stricter rule-based severities
   // in place, so a missing key (a pull request from a fork, say) never loosens the gate.
@@ -228,6 +339,7 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
     incomplete: incomplete.filter((step) => step.step !== "connect"),
     footer: reviewError ? "Review unavailable, so severities are rule-based only." : undefined,
   });
+  writeSarif(options, changes, options.lockfile);
 
   if (options.json) {
     return print(
@@ -239,10 +351,11 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
           lockfile: options.lockfile,
           summary: summarize(changes),
           servers: serverSummaries(results, changes),
-          changes,
+          changes: changes.map(withCodes),
           errors: errorList(results),
           complete: incomplete.length === 0,
           incomplete,
+          ...(policy ? { policy: { path: policy.path, entries: policy.accept.length, unknownServers: strays.map((entry) => entry.server) } } : {}),
           ...(options.explain ? { review: { available: reviewError === undefined, error: reviewError } } : {}),
         },
         null,
@@ -259,6 +372,14 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
   if (reviewError) out.push(p.yellow(`Review unavailable, so severities are rule-based only: ${reviewError}`));
   for (const result of results) {
     if (result.ok && result.probeNote) out.push(p.yellow(`Probe incomplete: ${visible(result.name)} ${visible(result.probeNote)}`));
+    if (result.ok && result.packageNote) out.push(p.yellow(`${visible(result.name)}: ${visible(result.packageNote)}`));
+  }
+  for (const entry of strays) {
+    out.push(p.yellow(`${rel(options, policy!.path)}: ${entry.rule} names server "${visible(entry.server)}", which is not in ${rel(options, options.lockfile)}, so it does nothing.`));
+  }
+  const unpinned = results.filter((r) => r.ok && r.entry.package && !locked.servers[r.name]?.package).map((r) => visible(r.name));
+  if (unpinned.length) {
+    out.push(p.dim(`${unpinned.join(", ")}: the package that runs is not pinned in ${rel(options, options.lockfile)} yet. \`mcpkeel update\` adds the pin.`));
   }
   return print(out.join("\n"), code);
 }
@@ -266,8 +387,10 @@ async function compare(options: Options, mode: "verify" | "diff"): Promise<numbe
 async function diffFiles(options: Options, oldPath: string, newPath: string): Promise<number> {
   const before = readLockfile(resolve(options.cwd, oldPath));
   const after = readLockfile(resolve(options.cwd, newPath));
-  const changes = diffLockfiles(before, after);
+  const policy = loadPolicy(options);
+  const changes = policy ? applyPolicy(diffLockfiles(before, after), policy) : diffLockfiles(before, after);
   if (options.explain) await review(changes, options, false);
+  writeSarif(options, changes, resolve(options.cwd, newPath));
 
   writeReport(options, {
     heading: changes.length ? `mcpkeel: ${plural(changes.length, "change")} (${summaryLine(changes)})` : "mcpkeel: no changes",
@@ -275,7 +398,7 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
   });
 
   if (options.json) {
-    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes }, null, 2));
+    return print(JSON.stringify({ drift: changes.length > 0, summary: summarize(changes), changes: changes.map(withCodes) }, null, 2));
   }
   const { p } = options;
   const out: string[] = [p.dim(`old  ${oldPath}`), p.dim(`new  ${newPath}`), ""];
@@ -292,6 +415,7 @@ async function diffFiles(options: Options, oldPath: string, newPath: string): Pr
 async function update(options: Options, only: string[]): Promise<number> {
   const previous = existsSync(options.lockfile) ? readLockfile(options.lockfile) : undefined;
   const { specs, results, configPath } = await snapshot(options);
+  keepLockedPins(specs, results, previous, options);
   const known = new Set([...specs.map((s) => s.name), ...Object.keys(previous?.servers ?? {})]);
   for (const name of only) {
     if (!known.has(name)) throw new UserError(`No server named "${name}" in the config or the lockfile.`);
@@ -319,7 +443,7 @@ async function update(options: Options, only: string[]): Promise<number> {
   if (options.json) {
     return print(
       JSON.stringify(
-        { ok: failed.length === 0, config: configPath, lockfile: options.lockfile, accepted: changes, errors: errorList(selected) },
+        { ok: failed.length === 0, config: configPath, lockfile: options.lockfile, accepted: changes.map(withCodes), errors: errorList(selected) },
         null,
         2,
       ),
@@ -334,8 +458,15 @@ async function update(options: Options, only: string[]): Promise<number> {
     out.push("", p.red(`Nothing written: ${plural(failed.length, "server")} could not be reached.`));
     return print(out.join("\n"), 2);
   }
+  const pinned = Object.entries(next.servers)
+    .filter(([name, entry]) => entry.package && previous?.servers[name] && !previous.servers[name]!.package)
+    .map(([name]) => visible(name));
   if (previous && changes.length === 0) {
-    out.push(`${p.green("✓")} ${rel(options, options.lockfile)} is already up to date.`);
+    out.push(
+      pinned.length
+        ? `${p.green("✓")} Pinned the package that runs for ${pinned.join(", ")}. Nothing else changed.`
+        : `${p.green("✓")} ${rel(options, options.lockfile)} is already up to date.`,
+    );
     return print(out.join("\n"));
   }
   if (changes.length) {
@@ -355,8 +486,33 @@ async function snapshot(options: Options): Promise<{ specs: ServerSpec[]; result
   const specs = loadConfig(configPath);
   if (specs.length === 0) throw new UserError(`${rel(options, configPath)} does not define any MCP servers.`);
   if (!options.json && process.stderr.isTTY) process.stderr.write(options.p.dim(`Contacting ${plural(specs.length, "server")}…\n`));
-  const results = await snapshotAll(specs, { timeoutMs: options.timeoutMs, verbose: options.verbose, version: VERSION, probe: options.probe });
+  const results = await snapshotAll(specs, {
+    timeoutMs: options.timeoutMs,
+    verbose: options.verbose,
+    version: VERSION,
+    probe: options.probe,
+    // The reviewer's key is mcpkeel's own, so the servers it starts do not get it.
+    hiddenEnv: options.explain && options.provider === "openai" ? ["OPENAI_API_KEY"] : [],
+    resolve: options.resolve
+      ? { timeoutMs: options.timeoutMs, npmRegistry: process.env.MCPKEEL_NPM_REGISTRY, pypiUrl: process.env.MCPKEEL_PYPI_URL }
+      : false,
+  });
   return { specs, results, configPath };
+}
+
+/**
+ * When a package could not be looked up, or lookups are off, the current
+ * reading has no pin. Keep the locked one, so that is not reported as the pin
+ * being removed. The lookup failure itself is reported as incomplete.
+ */
+function keepLockedPins(specs: ServerSpec[], results: SnapshotResult[], locked: Lockfile | undefined, options: Options): void {
+  for (const result of results) {
+    if (!result.ok || result.entry.package) continue;
+    const pin = locked?.servers[result.name]?.package;
+    if (!pin || (options.resolve && !result.resolveError)) continue;
+    const ref = packageRef(specs.find((spec) => spec.name === result.name)!);
+    if (ref && ref.ecosystem === pin.ecosystem && ref.name === pin.name) result.entry = { ...result.entry, package: pin };
+  }
 }
 
 function toLockfile(results: SnapshotResult[]): Lockfile {
@@ -373,13 +529,20 @@ function toLockfile(results: SnapshotResult[]): Lockfile {
 async function review(changes: Change[], options: Options, lenient: boolean): Promise<string | undefined> {
   const targets = reviewable(changes);
   if (targets.length === 0) return undefined;
-  const reviewer = claudeReviewer({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: options.model,
-    baseUrl: process.env.ANTHROPIC_BASE_URL,
-  });
+  const reviewer =
+    options.provider === "openai"
+      ? openaiReviewer({
+          apiKey: process.env.MCPKEEL_REVIEW_API_KEY || process.env.OPENAI_API_KEY || undefined,
+          model: options.model,
+          baseUrl: options.reviewUrl ?? process.env.OPENAI_BASE_URL,
+        })
+      : claudeReviewer({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: options.model ?? DEFAULT_MODEL,
+          baseUrl: options.reviewUrl ?? process.env.ANTHROPIC_BASE_URL,
+        });
   if (!options.json && process.stderr.isTTY) {
-    process.stderr.write(options.p.dim(`Asking Claude (${reviewer.model}) to review ${plural(targets.length, "change")}…\n`));
+    process.stderr.write(options.p.dim(`Asking ${reviewer.name === "claude" ? "Claude" : "the reviewer"} (${reviewer.model}) to review ${plural(targets.length, "change")}…\n`));
   }
   try {
     applyReviews(targets, await reviewer.review(targets), reviewer);
@@ -403,6 +566,26 @@ function sortChanges(changes: Change[]): void {
         : 1
       : RANK[a.severity] - RANK[b.severity] || order.get(a)! - order.get(b)!,
   );
+}
+
+function loadPolicy(options: Options): Policy | undefined {
+  return readPolicy(options.policy ?? join(dirname(options.lockfile), POLICY_NAME), options.policy !== undefined);
+}
+
+function writeSarif(options: Options, changes: Change[], lockfile: string): void {
+  if (!options.sarif) return;
+  let text = "";
+  try {
+    text = readFileSync(lockfile, "utf8");
+  } catch {
+    // A missing lockfile only costs the line numbers.
+  }
+  const uri = relative(options.cwd, lockfile).split(sep).join("/");
+  try {
+    writeFileSync(options.sarif, renderSarif({ version: VERSION, changes, lockfile: { uri: uri.startsWith("..") ? lockfile : uri, text } }));
+  } catch (err) {
+    throw new UserError(`Could not write SARIF to ${options.sarif}: ${(err as Error).message}`);
+  }
 }
 
 function writeReport(options: Options, report: Parameters<typeof renderMarkdown>[0]): void {
@@ -484,8 +667,10 @@ function footer(
   if (failedCount) lines.push(p.red(`${plural(failedCount, "server")} could not be reached, so ${failedCount === 1 ? "it was" : "they were"} not verified.`));
   const probes = incomplete.filter((step) => step.step === "probe").length;
   if (probes) lines.push(p.red(`--probe could not finish for ${plural(probes, "server")}, so ${probes === 1 ? "it was" : "they were"} not fully verified.`));
+  const lookups = incomplete.filter((step) => step.step === "resolve");
+  for (const step of lookups) lines.push(p.red(`${visible(step.server ?? "")}: ${visible(step.reason)}. The package it runs was not checked.`));
   if (changes.length === 0) {
-    if (!failedCount && !probes) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
+    if (!failedCount && !probes && !lookups.length) lines.push(`${p.green("✓")} No drift. Every server matches ${rel(options, options.lockfile)}.`);
     return lines;
   }
   lines.push(`${p.bold("Drift:")} ${plural(changes.length, "change")} (${summaryLine(changes)}).`);
@@ -555,6 +740,8 @@ function collectNotes(specs: ServerSpec[], lock: Lockfile, results: SnapshotResu
         });
       }
       if (result.probeNote) notes.push({ server: spec.name, subject: "server", message: result.probeNote });
+      if (result.resolveError) notes.push({ server: spec.name, subject: "package", message: `${result.resolveError}. It is not pinned.` });
+      if (result.packageNote) notes.push({ server: spec.name, subject: "package", message: result.packageNote });
     }
     const unpinned = unpinnedPackage(spec);
     if (unpinned) {
@@ -570,15 +757,11 @@ function collectNotes(specs: ServerSpec[], lock: Lockfile, results: SnapshotResu
 }
 
 /** Package runners that fetch the latest release unless a version is given. */
+/** A package the config runs without naming a release, shown as written. */
 function unpinnedPackage(spec: ServerSpec): string | undefined {
-  if (spec.transport !== "stdio" || !spec.command) return undefined;
-  const runner = basename(spec.command).replace(/\.(cmd|exe)$/i, "");
-  if (!["npx", "bunx", "uvx", "pipx"].includes(runner)) return undefined;
-  const pkg = (spec.args ?? []).find((arg) => !arg.startsWith("-") && arg !== "run" && arg !== "dlx");
-  if (!pkg || pkg.startsWith(".") || pkg.startsWith("/")) return undefined;
-  const at = pkg.lastIndexOf("@");
-  const version = at > 0 ? pkg.slice(at + 1) : pkg.includes("==") ? pkg.split("==")[1] : undefined;
-  return version && version !== "latest" ? undefined : pkg;
+  const ref = packageRef(spec);
+  if (!ref || ref.digest || (ref.requested && ref.requested !== "latest")) return undefined;
+  return ref.ecosystem === "oci" ? ref.name : `${ref.name}${ref.requested ? `@${ref.requested}` : ""}`;
 }
 
 function serverSummaries(results: SnapshotResult[], changes: Change[]): unknown[] {
@@ -601,7 +784,7 @@ function serverSummaries(results: SnapshotResult[], changes: Change[]): unknown[
 
 /** A part of the check that did not run. `server` is absent for the review, which covers every server at once. */
 interface IncompleteStep {
-  step: "connect" | "probe" | "review";
+  step: "connect" | "resolve" | "probe" | "review";
   server?: string;
   reason: string;
 }
@@ -609,8 +792,12 @@ interface IncompleteStep {
 function incompleteSteps(results: SnapshotResult[], reviewError: string | undefined): IncompleteStep[] {
   const steps: IncompleteStep[] = [];
   for (const result of results) {
-    if (!result.ok) steps.push({ step: "connect", server: result.name, reason: result.error.split("\n")[0] ?? "" });
-    else if (result.probeNote) steps.push({ step: "probe", server: result.name, reason: result.probeNote });
+    if (!result.ok) {
+      steps.push({ step: "connect", server: result.name, reason: result.error.split("\n")[0] ?? "" });
+      continue;
+    }
+    if (result.resolveError) steps.push({ step: "resolve", server: result.name, reason: result.resolveError });
+    if (result.probeNote) steps.push({ step: "probe", server: result.name, reason: result.probeNote });
   }
   if (reviewError !== undefined) steps.push({ step: "review", reason: reviewError });
   return steps;

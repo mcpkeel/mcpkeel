@@ -170,6 +170,19 @@ test("the action's secrets are not handed to the MCP servers it starts", { skip 
   assert.ok(!names.includes("MCPKEEL_ANTHROPIC_API_KEY"), "API key input reached a server");
   // mcpkeel itself is given the key for --explain, and does not pass it on either.
   assert.ok(!names.includes("ANTHROPIC_API_KEY"), "API key reached a server");
+
+  // The same for the key of an OpenAI-compatible reviewer.
+  const other = await action(ws, {
+    MCPKEEL_MODE: "verify",
+    MCPKEEL_EXPLAIN: "true",
+    MCPKEEL_PROVIDER: "openai",
+    MCPKEEL_REVIEW_MODEL: "m",
+    MCPKEEL_REVIEW_URL: "http://127.0.0.1:9/v1",
+    MCPKEEL_REVIEW_KEY: "sk-review-test",
+  });
+  assert.equal(other.code, 0, other.stderr);
+  const after = JSON.parse(read(join(ws.base, "server-env.json")));
+  assert.ok(!after.includes("MCPKEEL_REVIEW_KEY") && !after.includes("MCPKEEL_REVIEW_API_KEY"), "review key reached a server");
 });
 
 test("update-pr mode refuses to run without a lockfile or a token", { skip }, async () => {
@@ -186,4 +199,13 @@ test("update-pr mode refuses to run without a lockfile or a token", { skip }, as
 test("action.yml runs the same mcpkeel version as package.json", () => {
   const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.match(readFileSync(join(root, "action.yml"), "utf8"), new RegExp(`default: "${version.replace(/\./g, "\\.")}"`));
+});
+
+test("verify mode writes SARIF when asked", { skip }, async () => {
+  const ws = workspace();
+  const sarif = join(ws.base, "results.sarif");
+  const drift = await action(ws, { MCPKEEL_MODE: "verify", MCPKEEL_SARIF: sarif, FIXTURE_VARIANT: "rugpull" });
+  assert.equal(drift.code, 1, drift.stderr);
+  const results = JSON.parse(read(sarif)).runs[0].results;
+  assert.ok(results.some((result) => result.ruleId === "MK112" && result.level === "error"));
 });

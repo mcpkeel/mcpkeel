@@ -1,3 +1,4 @@
+import { flagRule, kindRule } from "./findings.js";
 import { visible } from "./scan.js";
 import type { Change, Severity } from "./types.js";
 
@@ -56,12 +57,18 @@ export function renderChange(change: Change, p: Palette): string {
     const tint = verdict === "adversarial" ? p.red : verdict === "functional" ? p.yellow : p.green;
     lines.push(`${INDENT}${p.cyan(`${reviewerName(change)}:`)} ${tint(verdict)}. ${visible(change.review.reason)}${effectNote(change, p)}`);
   }
+  // The reason is written by the team, in the repository, but is shown through
+  // visible() all the same: it arrives in a pull request like anything else.
+  for (const entry of change.policy ?? []) {
+    lines.push(`${INDENT}${p.cyan(`Policy ${entry.rule}:`)} ${entry.effect}. ${p.dim(visible(entry.reason))}`);
+  }
   return lines.join("\n");
 }
 
+/** "Claude", or the model that answered, so a report always says who judged. */
 function reviewerName(change: Change): string {
-  const by = change.review?.by ?? "review";
-  return by.charAt(0).toUpperCase() + by.slice(1);
+  if (!change.review || change.review.by === "claude") return "Claude";
+  return `Review by ${visible(change.review.model)}`;
 }
 
 function effectNote(change: Change, p: Palette): string {
@@ -149,7 +156,7 @@ export function renderMarkdown(report: MarkdownReport): string {
   for (const [server, changes] of byServer) {
     out.push(`### ${codeSpan(server)}`, "");
     for (const change of changes) {
-      out.push(`- **${LABEL[change.severity]}** ${codeSpan(change.subject)} ${escapeMarkdown(change.message)}`);
+      out.push(`- **${LABEL[change.severity]}** ${codeSpan(change.subject)} ${escapeMarkdown(change.message)} · ${kindRule(change.kind).code}`);
       if (change.before !== undefined || change.after !== undefined) {
         const [before, after] = excerptPair(change.before ?? "", change.after ?? "", 600);
         const lines: string[] = [];
@@ -157,14 +164,15 @@ export function renderMarkdown(report: MarkdownReport): string {
         if (change.after !== undefined && after) lines.push(`+ ${after}`);
         if (lines.length) out.push(...fenced(lines, "diff").map((line) => `  ${line}`));
       }
-      for (const flag of change.flags ?? []) out.push(`  - Flag: ${flag.label}: ${codeSpan(flag.excerpt)}`);
+      for (const flag of change.flags ?? []) out.push(`  - Flag ${flagRule(flag.id).code}: ${flag.label}: ${codeSpan(flag.excerpt)}`);
       if (change.review) {
         const effect =
           change.ruleSeverity && change.review.effect !== "kept"
             ? ` Severity ${change.review.effect} from ${change.ruleSeverity}.`
             : "";
-        out.push(`  - ${reviewerName(change)}: **${change.review.verdict}**. ${escapeMarkdown(change.review.reason)}${effect}`);
+        out.push(`  - ${escapeMarkdown(reviewerName(change))}: **${change.review.verdict}**. ${escapeMarkdown(change.review.reason)}${effect}`);
       }
+      for (const entry of change.policy ?? []) out.push(`  - Policy ${entry.rule}: ${escapeMarkdown(entry.effect)}. ${escapeMarkdown(entry.reason)}`);
     }
     out.push("");
   }

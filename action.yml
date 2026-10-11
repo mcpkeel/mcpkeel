@@ -14,9 +14,11 @@ inputs:
     default: verify
   version:
     description: The mcpkeel version to run from npm.
-    default: "0.2.1"
+    default: "0.3.0"
   config:
-    description: Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json.
+    description: >-
+      Path to the MCP config. Defaults to the first of .mcp.json, mcp.json, .cursor/mcp.json, .vscode/mcp.json,
+      opencode.json, opencode.jsonc, .codex/config.toml, .gemini/settings.json.
     default: ""
   lockfile:
     description: Path to the lockfile.
@@ -33,11 +35,25 @@ inputs:
     description: Claude API key for explain. It is given to mcpkeel only, never to the MCP servers it starts.
     default: ""
   model:
-    description: Model for explain. Defaults to mcpkeel's own default.
+    description: Model for explain. Defaults to mcpkeel's own default for Claude; required with provider openai.
+    default: ""
+  provider:
+    description: 'Reviewer for explain: anthropic, or openai for any OpenAI-compatible endpoint.'
+    default: ""
+  review-url:
+    description: Base URL of the reviewer's API, for a gateway or a self-hosted model server.
+    default: ""
+  review-api-key:
+    description: Key for provider openai. Like anthropic-api-key, it is given to mcpkeel only, never to the MCP servers it starts.
     default: ""
   probe:
     description: 'verify: read each server again later in the session and under another client name.'
     default: "false"
+  sarif:
+    description: >-
+      verify: also write the changes as SARIF to this path, for github/codeql-action/upload-sarif.
+      The file is written even when there is no drift.
+    default: ""
   timeout:
     description: Per-server timeout in seconds.
     default: "30"
@@ -79,7 +95,11 @@ runs:
         MCPKEEL_EXPLAIN: ${{ inputs.explain }}
         MCPKEEL_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         MCPKEEL_REVIEW_MODEL: ${{ inputs.model }}
+        MCPKEEL_PROVIDER: ${{ inputs.provider }}
+        MCPKEEL_REVIEW_URL: ${{ inputs.review-url }}
+        MCPKEEL_REVIEW_KEY: ${{ inputs.review-api-key }}
         MCPKEEL_PROBE: ${{ inputs.probe }}
+        MCPKEEL_SARIF: ${{ inputs.sarif }}
         MCPKEEL_TIMEOUT: ${{ inputs.timeout }}
         MCPKEEL_BRANCH: ${{ inputs.branch }}
         MCPKEEL_BASE: ${{ inputs.base }}

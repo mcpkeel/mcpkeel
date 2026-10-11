@@ -59,10 +59,10 @@
     <div class="hero-copy">
       <p class="lede">An MCP server can rewrite the tool descriptions your agent trusts, at any time, and nothing tells you. mcpkeel pins them in a file you commit and fails the build when they change.</p>
       <div class="install">
-        <code id="install-command">npx mcpkeel init</code>
-        <button type="button" class="copy" data-copy="npx mcpkeel init">Copy</button>
+        <code id="install-command">npx mcpkeel demo</code>
+        <button type="button" class="copy" data-copy="npx mcpkeel demo">Copy</button>
       </div>
-      <p class="fine">MIT licensed. Runs on your machine, with no account and no telemetry. Needs Node 20 or later.</p>
+      <p class="fine">The demo pins a local server, lets it turn malicious, and shows the build failing. No network. MIT licensed, no account, no telemetry. Needs Node 22 or later.</p>
     </div>
     <ul class="legend" aria-label="How to read the drawing">
       <li><svg viewBox="0 0 40 20" aria-hidden="true"><path class="course-line" d="M0 10 H40"/><circle class="fix" cx="20" cy="10" r="6"/><circle class="fix-dot" cx="20" cy="10" r="2"/></svg><span><b>init</b> pins the definitions you reviewed in <code>mcp.lock</code>.</span></li>
@@ -123,7 +123,7 @@
       <h3>Add it to a workflow</h3>
       <p>Run it on pull requests and on a schedule. Servers change on their schedule, not yours.</p>
       <p>The action can also open a pull request with the report when a server changes, so a change becomes a review to merge or close and not a red build to mute.</p>
-      <p>mcpkeel reads <code>.mcp.json</code> (Claude Code), <code>.cursor/mcp.json</code>, <code>.vscode/mcp.json</code>, or any file you pass with <code>--config</code>. It works with local stdio servers, Streamable HTTP and SSE.</p>
+      <p>mcpkeel reads the MCP config of Claude Code (<code>.mcp.json</code>), Cursor, VS Code, opencode, Codex and Gemini CLI, or any file you pass with <code>--config</code>. It works with local stdio servers, Streamable HTTP and SSE.</p>
     </div>
     <pre tabindex="0" aria-label="GitHub Actions example"><code>on:
   pull_request:
@@ -137,7 +137,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.2.1
+      - uses: mcpkeel/mcpkeel@v0.3.0
         with:
           probe: true</code></pre>
   </div>
