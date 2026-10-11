@@ -4,13 +4,15 @@
 
 ### Added
 
+- `mcpkeel demo` pins a local demo server, lets it change the way a compromised release would, and runs `verify`. No network, nothing left behind.
 - The release a server's launcher runs is pinned. For `npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `npm exec`, `uvx`, `uv tool run`, `pipx run`, `docker run` and `podman run`, mcpkeel looks up the version that will run and the registry's digest of it before starting the server, and records both in `mcp.lock`. A different release is high; the same version with different contents is critical. A version range cannot be pinned, and `init` says so. A registry that cannot be reached makes the run incomplete; `--no-resolve` turns the lookup off. A lockfile without pins is not drift, and `update` adds them.
 - Configs of opencode (`opencode.json`, `opencode.jsonc`), Codex (`.codex/config.toml`) and Gemini CLI (`.gemini/settings.json`), with each client's way of referring to the environment. One server pins the same way whichever client's file it is in. A stdio server's `cwd` is honoured and pinned.
 - Stable codes for every kind of change (`MK1xx`) and every built-in check (`MK2xx`), each with its OWASP MCP Top 10 category, in JSON (`rule`, `owasp`), Markdown and the README.
 - `--sarif <file>` writes SARIF 2.1.0 for GitHub code scanning: one result per change, at its line in `mcp.lock`, with a fingerprint that stays the same while the change does. The action has a `sarif` input.
 - `mcpkeel.json`, or `--policy <file>`: decisions about findings, each with a required reason. Accepting a check takes its hit off a change, which returns to the severity it had without it. Setting a severity for a kind of change makes it quieter, never hidden. Every applied decision is shown with its reason.
 - `--provider openai` reviews through any OpenAI-compatible endpoint, including a model server on the same machine, with `--review-url` and `--model`. The prompt, the delimiter and the limits on lowering are the same as with Claude, reports name the model that judged, and the key is not passed to the servers being checked. The action has `provider`, `review-url` and `review-api-key` inputs.
-- `eval/mcptox.mjs` measures mcpkeel on the MCPTox benchmark. A poisoned tool appearing on a pinned server is reported at high or above in 485 of 485 cases. The built-in checks alone flag 50 of the 485 poisoned tools, which makes them critical, and 0 of 362 real tools.
+- `eval/mcptox.mjs` measures mcpkeel on the MCPTox benchmark. A poisoned tool appearing on a pinned server is reported at high or above in 485 of 485 cases. The built-in checks alone flag 50 of the 485 poisoned tools, which makes them critical, and 0 of 362 real tools. CI runs it on every change and fails if any of these numbers gets worse.
+- `docs/EVIDENCE.md` records the run behind each claim in the README.
 
 ### Changed
 
