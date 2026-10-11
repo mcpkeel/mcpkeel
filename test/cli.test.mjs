@@ -1047,3 +1047,15 @@ test("--provider openai says what is missing", async () => {
   assert.match(noKey.stderr, /needs a key\. Set MCPKEEL_REVIEW_API_KEY or OPENAI_API_KEY/);
   assert.match((await run(dir, ["verify", "--provider", "nope"])).stderr, /--provider must be anthropic or openai/);
 });
+
+test("demo pins a local server, watches it change, and shows verify failing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-test-"));
+  const result = await run(dir, ["demo"]);
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /Wrote mcp\.lock: 1 server, 2 tools pinned\./);
+  assert.match(result.stdout, /CRITICAL\s+tool send_email description changed/);
+  assert.match(result.stdout, /HIGH\s+tool search_notes description changed/);
+  assert.match(result.stdout, /verify exited 1, so the build fails/);
+  // Nothing is left in the directory it ran from.
+  assert.ok(!existsSync(join(dir, "mcp.lock")) && !existsSync(join(dir, ".mcp.json")));
+});

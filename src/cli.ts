@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { UserError, findConfig, loadConfig } from "./config.js";
@@ -26,6 +29,7 @@ Usage
   mcpkeel diff                 Show what changed, with severity (exits 0 unless incomplete)
   mcpkeel diff <old> <new>     Compare two lockfiles without contacting any server
   mcpkeel update [server...]   Accept the current definitions and rewrite mcp.lock
+  mcpkeel demo                 Watch mcpkeel catch a rug pull, on a local demo server
 
 Options
   -c, --config <path>     MCP config to read (default: the first of .mcp.json,
@@ -98,6 +102,7 @@ interface Options {
   json: boolean;
   verbose: boolean;
   cwd: string;
+  color: boolean;
   p: Palette;
 }
 
@@ -166,6 +171,7 @@ async function main(argv: string[]): Promise<number> {
     json: Boolean(values.json),
     verbose: Boolean(values.verbose),
     cwd,
+    color,
     p: palette(color),
   };
 
@@ -180,9 +186,68 @@ async function main(argv: string[]): Promise<number> {
       return compare(options, "diff");
     case "update":
       return update(options, rest);
+    case "demo":
+      return demo(options);
     default:
       throw new UserError(`Unknown command "${command}".\nRun \`mcpkeel --help\` for usage.`);
   }
+}
+
+/* ------------------------------------------------------------------ demo */
+
+/**
+ * Pin a local demo server, let it change the way a compromised release would,
+ * and run verify. Everything happens in a temporary directory, with a server
+ * that ships with mcpkeel, so nothing touches the network or the current project.
+ */
+async function demo(options: Options): Promise<number> {
+  const { p } = options;
+  const dir = mkdtempSync(join(tmpdir(), "mcpkeel-demo-"));
+  const server = fileURLToPath(new URL("./demo-server.js", import.meta.url));
+  const cli = fileURLToPath(import.meta.url);
+  const writeConfig = (stage: string): void =>
+    writeFileSync(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { notes: { command: process.execPath, args: [server], env: { MCPKEEL_DEMO_STAGE: stage } } } }, null, 2));
+  const step = (args: string[]): { code: number; out: string } => {
+    const child = spawnSync(process.execPath, [cli, ...args, ...(options.color ? [] : ["--no-color"])], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, ...(options.color ? { FORCE_COLOR: "1" } : {}) },
+    });
+    return { code: child.status ?? 2, out: `${child.stdout}${child.stderr}`.trimEnd() };
+  };
+
+  try {
+    print(p.bold("1. A notes server you reviewed and trust. mcpkeel pins what it tells your agent:"));
+    writeConfig("clean");
+    const init = step(["init"]);
+    print(`${indent(init.out)}
+`);
+    if (init.code !== 0) return init.code;
+
+    print(p.bold("2. A new release of the server ships. Same name, same command, new tool descriptions."));
+    print(p.bold("   Your agent would read them as instructions. In CI, `mcpkeel verify` runs:"));
+    writeConfig("poisoned");
+    const verify = step(["verify"]);
+    print(`${indent(verify.out)}
+`);
+
+    if (verify.code !== 1) {
+      print(p.red(`The demo expected verify to exit 1, and it exited ${verify.code}.`));
+      return 2;
+    }
+    print(p.bold(`3. verify exited 1, so the build fails before an agent sees the new text.`));
+    print("   Try it on your own servers: npx mcpkeel init, commit mcp.lock, run npx mcpkeel verify in CI.");
+    return 0;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function indent(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line ? `   ${line}` : line))
+    .join("\n");
 }
 
 /* ------------------------------------------------------------------ init */
