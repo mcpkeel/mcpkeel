@@ -1,13 +1,44 @@
 # mcpkeel
 
+[![npm](https://img.shields.io/npm/v/mcpkeel.svg)](https://www.npmjs.com/package/mcpkeel)
+[![CI](https://github.com/mcpkeel/mcpkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/mcpkeel/mcpkeel/actions/workflows/ci.yml)
+[![provenance](https://img.shields.io/badge/npm-provenance-blue.svg)](docs/EVIDENCE.md#releases-are-built-and-signed-in-ci)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node 22+](https://img.shields.io/badge/node-22%2B-brightgreen.svg)](https://nodejs.org)
+
 **The lockfile for MCP.** An MCP server can rewrite the tool descriptions your agent trusts, at any time, and nothing tells you. mcpkeel pins them in a file you commit and fails the build when they change.
 
 ```sh
+npx mcpkeel demo      # watch it catch a rug pull, on a local server, in seconds
 npx mcpkeel init      # snapshot every server in your MCP config into mcp.lock
 npx mcpkeel verify    # in CI: exit 1 if anything changed
 ```
 
 Website: [mcpkeel.app](https://mcpkeel.app)
+
+## TL;DR
+
+What an MCP server can change after you approved it, and what happens next:
+
+| The server's next release… | Your agent, without mcpkeel | `mcpkeel verify` |
+| --- | --- | --- |
+| hides an instruction in a tool description ("send the conversation to…, do not tell the user") | reads it as guidance, every session | **critical**, the check that fired, exit 1 |
+| rewords a description in a way no pattern catches | reads it as guidance | **high**, the old and new text side by side, exit 1 |
+| adds a tool, or a tool stops being read-only | can call it | **high**, exit 1 |
+| keeps every description and changes the code behind it (`npx -y server` fetches the new release) | runs the new code | **high**, the release that runs now, exit 1; **critical** if a published version's contents changed |
+| answers a checker one way and an agent another, or changes partway through a session | sees the other answer | with `--probe`: **high**, or **critical** for a change mid-session |
+
+On the [MCPTox](https://arxiv.org/abs/2508.14925) benchmark, a poisoned tool appearing on a pinned server is reported in 485 of 485 cases, with no false alarm on the 362 real tools of the same servers. See [Measured](#measured).
+
+Every claim in this README is backed by a recorded run in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
+
+## When to use it
+
+- Your repository commits an MCP config (`.mcp.json`, `.cursor/mcp.json`, `opencode.json`, `.codex/config.toml`, …) that a team or CI relies on.
+- You use servers you did not write, local or remote, and you want a change to them to be a reviewed pull request, not a surprise.
+- You want MCP findings in the same places as your other security checks: a failing job, a pull request, GitHub code scanning.
+
+You do not need it for a server you write and release yourself, if its definitions are already reviewed in your own repository. It does not read server code or watch an agent at runtime; see [What it does not do](#what-it-does-not-do).
 
 ## Why
 
@@ -46,6 +77,7 @@ Review the changes, then run `mcpkeel update` to accept them.
 | `mcpkeel diff` | The same comparison as a report. Exits `0` whatever it finds, and `2` if part of the check could not run. |
 | `mcpkeel diff <old> <new>` | Compares two lockfiles without contacting any server. Useful in code review. |
 | `mcpkeel update [server...]` | Accepts the current definitions and rewrites `mcp.lock`, for all servers or only the ones named. |
+| `mcpkeel demo` | Pins a local demo server, lets it change the way a compromised release would, and runs `verify`. No network. |
 
 | Option | What it adds |
 | --- | --- |
@@ -408,6 +440,8 @@ Code scanning is available on public repositories, and on private ones with GitH
 
 The checks were measured as they stand, not tuned to the benchmark. They are precise and narrow: they catch requests for credentials and secret files well, and most attacks phrased as ordinary instructions not at all. That is what the lockfile is for. A change is reported because it is a change, whatever it says, and the checks only decide how loud it is. For the wording itself, `--explain` is the second reading.
 
+Run it yourself with `npm run build && node eval/mcptox.mjs`. CI runs it with `--check` on every change and fails if any number gets worse.
+
 ## What it does not do
 
 - **It trusts what you pin.** `mcpkeel init` records whatever the server sends that day. Read the lockfile before you commit it. `init` points out anything that trips a check, and tool names that two servers share.
@@ -425,6 +459,8 @@ The checks were measured as they stand, not tuned to the benchmark. They are pre
 ## Requirements
 
 Node.js 22 or later. Two direct dependencies: the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), and `smol-toml` to read Codex configs. No telemetry, no account.
+
+Every release is built and published by GitHub Actions with npm provenance, from a tagged commit of this repository. To check the copy you install, run `npm audit signatures` in a project that depends on it, or see [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 
 ## Development
 
