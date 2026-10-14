@@ -3,17 +3,17 @@
   "servers": {
     "context7": {
       "instructions": "Use this server to fetch current documentation whenever the user asks about a library, framework, SDK, API, CLI tool, or cloud service — even well-known ones like React, Next.js, Prisma, Express, Tailwind, Django, or Spring Boot. This includes API syntax, configuration, version migration, library-specific debugging, setup instructions, and CLI tool usage. Use even when you think you know the answer — your training data may not reflect recent changes. Prefer this over web search for library docs.\n\nDo not use for: refactoring, writing scripts from scratch, debugging business logic, code review, or general programming concepts.",
-      "integrity": "sha256-8YQVb+sM2uoXi5gDLic1iHvXgTJwpjHU7TGvFHQjGGQ=",
+      "integrity": "sha256-ZcDPswgvphmEHWUX2NKdIPBpVOhZZRX2groXjIdIXfQ=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-fuDt5nWjE5JkAPLjU0m+m0LlJphxyegAvAmcwHoA5jrzAhKo/rVV0RFA8TOwODGdDVdt/nPxNslkxeDIDp/rPA==",
+        "integrity": "sha512-HtFuzT7c88ycSzNRrkBRQD4nIYQD6AgQETs2TeKrofFDv6R9RqAYFspopfDq6/OuAnfGZJj5rGrX4whnXbHYLQ==",
         "name": "@upstash/context7-mcp",
-        "version": "4.3.0"
+        "version": "4.4.1"
       },
       "prompts": {},
       "serverInfo": {
         "name": "Context7",
-        "version": "4.3.0"
+        "version": "4.4.1"
       },
       "source": {
         "args": [
@@ -39,7 +39,7 @@
                 "type": "string"
               },
               "libraryId": {
-                "description": "Exact Context7-compatible library ID (e.g., '/mongodb/docs', '/vercel/next.js', '/supabase/supabase', '/vercel/next.js/v14.3.0-canary.87') retrieved from 'resolve-library-id' or directly from user query in the format '/org/project' or '/org/project/version'.",
+                "description": "Exact Context7-compatible library ID (e.g., '/mongodb/docs', '/vercel/next.js', '/supabase/supabase', '/vercel/next.js/v16.2.9') retrieved from 'resolve-library-id' or directly from user query in the format '/org/project' or '/org/project/version'.",
                 "type": "string"
               },
               "query": {
@@ -53,7 +53,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-HDUQrKuLWKw7c/ETZcZWFGuhIeXfHcSYT3xcp3kIKck=",
+          "integrity": "sha256-e4MxSZ7HVWwCrFvN6DkB1pdbj5C6pKV4NO8Gr9KROjk=",
           "title": "Query Documentation"
         },
         "resolve-library-id": {
