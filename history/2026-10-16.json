@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-16",
+  "changes": 2,
+  "bySeverity": {
+    "critical": 0,
+    "high": 1,
+    "medium": 0,
+    "low": 1
+  },
+  "servers": [
+    "context7"
+  ],
+  "findings": [
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}
