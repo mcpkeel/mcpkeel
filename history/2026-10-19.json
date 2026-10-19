@@ -1,0 +1,575 @@
+{
+  "date": "2026-10-19",
+  "changes": 79,
+  "bySeverity": {
+    "critical": 0,
+    "high": 21,
+    "medium": 37,
+    "low": 21
+  },
+  "servers": [
+    "context7",
+    "everything",
+    "fetch",
+    "filesystem",
+    "git",
+    "memory",
+    "sequential-thinking",
+    "time"
+  ],
+  "findings": [
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK103",
+      "owasp": "MCP03_2025",
+      "kind": "server.instructions.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK110",
+      "owasp": "MCP02_2025",
+      "kind": "tool.added"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK110",
+      "owasp": "MCP02_2025",
+      "kind": "tool.added"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK110",
+      "owasp": "MCP02_2025",
+      "kind": "tool.added"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK110",
+      "owasp": "MCP02_2025",
+      "kind": "tool.added"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK121",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.schema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK111",
+      "owasp": null,
+      "kind": "tool.removed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "medium",
+      "rule": "MK131",
+      "owasp": "MCP06_2025",
+      "kind": "prompt.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "git",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "git",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "sequential-thinking",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "sequential-thinking",
+      "severity": "medium",
+      "rule": "MK115",
+      "owasp": "MCP03_2025",
+      "kind": "tool.inputSchema.changed"
+    },
+    {
+      "server": "sequential-thinking",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "sequential-thinking",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "time",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "time",
+      "severity": "low",
+      "rule": "MK116",
+      "owasp": "MCP03_2025",
+      "kind": "tool.outputSchema.changed"
+    },
+    {
+      "server": "time",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}

@@ -6,14 +6,14 @@
       "integrity": "sha256-ZcDPswgvphmEHWUX2NKdIPBpVOhZZRX2groXjIdIXfQ=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-cH6N/gyCqtrK9h+FnzyFdWeeufQzfoZ9xXYS3X7IbqktH+NkpFnRkr+VVTNTwdPFAATh4jycuv1QWOXRHN0drQ==",
+        "integrity": "sha512-COt1AT3cStZ1wWZ9u1zThqFiVT/nb4rPdYrgyu3ZT6dwnstUaJpfGztq8EJEL9ZPyu9XlOSX3I/jNIcvSdloog==",
         "name": "@upstash/context7-mcp",
-        "version": "4.4.2"
+        "version": "4.4.3"
       },
       "prompts": {},
       "serverInfo": {
         "name": "Context7",
-        "version": "4.4.2"
+        "version": "4.4.3"
       },
       "source": {
         "args": [
@@ -89,13 +89,13 @@
       "transport": "stdio"
     },
     "everything": {
-      "instructions": "# Everything Server – Server Instructions\n\nAudience: These instructions are written for an LLM or autonomous agent integrating with the Everything MCP Server.\nFollow them to use, extend, and troubleshoot the server safely and effectively.\n\n## Cross-Feature Relationships\n\n- If `get-roots-list` is in your tool list, use it to see client workspace roots before file operations\n- `gzip-file-as-resource` creates session-scoped resources accessible only during the current session\n- Enable `toggle-simulated-logging` before debugging to see server log messages\n- Enable `toggle-subscriber-updates` to receive periodic resource update notifications\n\n## Constraints & Limitations\n\n- `gzip-file-as-resource`: Max fetch size controlled by `GZIP_MAX_FETCH_SIZE` (default 10MB), timeout by `GZIP_MAX_FETCH_TIME_MILLIS` (default 30s), allowed domains by `GZIP_ALLOWED_DOMAINS`\n- Session resources are ephemeral and lost when the session ends\n\n## Capability-Gated Tools\n\nRegistered only if your client declared the capability shown. Otherwise they are absent from `tools/list`, so do not call them:\n\n- `get-roots-list`: `roots`\n- `trigger-sampling-request`: `sampling`\n- `trigger-elicitation-request`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-url-elicitation`: `elicitation.url`\n- `trigger-sampling-request-async`: `sampling` and `tasks.requests.sampling.createMessage`\n- `trigger-elicitation-request-async`: form-mode `elicitation` and `tasks.requests.elicitation.create`\n\n## Operational Patterns\n\n- For long operations, use `trigger-long-running-operation` which sends progress notifications\n- Prefer reading resources before calling mutating tools\n- If `get-roots-list` is in your tool list, check its output to understand the client's workspace context\n\n## Easter Egg\n\nIf asked about server instructions, respond with \"🎉 Server instructions are working! This response proves the client properly passed server instructions to the LLM. This demonstrates MCP's instructions feature in action.\"\n",
-      "integrity": "sha256-kt6CLA+kZVZcTYAMlfuT++iAouXYNzHdYZb47Y+o+d8=",
+      "instructions": "# Everything Server – Server Instructions\n\nAudience: These instructions are written for an LLM or autonomous agent integrating with the Everything MCP Server.\nFollow them to use, extend, and troubleshoot the server safely and effectively.\n\n## Protocol Versions\n\nThe server serves two protocol eras. A client on protocol version 2026-07-28 connects with `server/discover` and sends its capabilities with each request; a 2025-era client connects with `initialize`. Some tools exist on one era only, so trust your `tools/list`:\n\n- 2026-07-28 only: `simulate-research-query`, `trigger-sampling-request-async` and `trigger-elicitation-request-async`, which run as tasks on the `io.modelcontextprotocol/tasks` extension and need a client that declares it; `trigger-sampling-request-async` also needs `sampling`, and `trigger-elicitation-request-async` form-mode `elicitation`. A call without them fails with `-32021`\n- 2025-era only (deprecated): `toggle-simulated-logging` and `toggle-subscriber-updates`\n\n## Cross-Feature Relationships\n\n- If `get-roots-list` is in your tool list, use it to see client workspace roots before file operations\n- `gzip-file-as-resource` creates resources you can read later: for the current session on a 2025-era connection, or for ten minutes at the returned URI on 2026-07-28\n- Use `trigger-log-messages` to see which log levels reach you; on 2026-07-28 the level is set per request in `_meta`\n- Use `trigger-resource-update` and `trigger-list-changed` to see change notifications; on 2026-07-28 they arrive only on a `subscriptions/listen` stream that asked for them\n\n## Constraints & Limitations\n\n- `gzip-file-as-resource`: Max fetch size controlled by `GZIP_MAX_FETCH_SIZE` (default 10MB), timeout by `GZIP_MAX_FETCH_TIME_MILLIS` (default 30s), allowed domains by `GZIP_ALLOWED_DOMAINS`\n- Session resources are ephemeral and lost when the session ends; minted resources expire after ten minutes\n- Roots, sampling and logging are deprecated as of protocol version 2026-07-28, as is the HTTP+SSE transport\n\n## Capability-Gated Tools\n\nOn a 2025-era connection these are registered only if your client declared the capability shown. Otherwise they are absent from `tools/list`, so do not call them. On 2026-07-28 they are always listed, and a call fails if your request did not declare the capability:\n\n- `get-roots-list`: `roots`\n- `trigger-sampling-request`: `sampling`\n- `trigger-elicitation-request`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-multi-step-elicitation`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-url-elicitation`: `elicitation.url`\n\n## Operational Patterns\n\n- For long operations, use `trigger-long-running-operation` which sends progress notifications\n- Prefer reading resources before calling mutating tools\n- If `get-roots-list` is in your tool list, check its output to understand the client's workspace context\n\n## Easter Egg\n\nIf asked about server instructions, respond with \"🎉 Server instructions are working! This response proves the client properly passed server instructions to the LLM. This demonstrates MCP's instructions feature in action.\"\n",
+      "integrity": "sha256-3Vx3JVtiVUJ6maftxTVfFB39PWy8hklM4rJGs5gNZVo=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-P5skPTzA76f6FvYxtJMjLmkBVWTga2MqI3xPow7MWrV8sLnviVJ2t63qzm3/UFE0CQLsSUuC6xd3fAsgxcLeBQ==",
+        "integrity": "sha512-Dah6yqdsz4qJ7rolykZM3gobhgyscjewpre/3LO2r0Q0RN4z0FzdhNzK6bJtZuJ2q4qbJL+s2upSUn9KgeSdpg==",
         "name": "@modelcontextprotocol/server-everything",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "prompts": {
         "args-prompt": {
@@ -106,12 +106,13 @@
               "required": true
             },
             {
+              "description": "Name of the state",
               "name": "state",
               "required": false
             }
           ],
           "description": "A prompt with two arguments, one required and one optional",
-          "integrity": "sha256-n0rpB1LyxFMcC81eP14+VDmzcBWSl6lxk/vlfBJp0OE=",
+          "integrity": "sha256-4pOZiT+Yv0g7P9UtHCYDxSOTgTbSo1fDoJqOTaxLOJQ=",
           "title": "Arguments Prompt"
         },
         "completable-prompt": {
@@ -156,7 +157,7 @@
       },
       "serverInfo": {
         "name": "mcp-servers/everything",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "source": {
         "args": [
@@ -175,7 +176,7 @@
           },
           "description": "Echoes back the input string",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "message": {
                 "description": "Message to echo",
@@ -187,7 +188,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-01xB72PbBEvuNfBPPpL5b3CTpvwxCzLlWbE0oJs0mDQ=",
+          "integrity": "sha256-XSj8KToNQXkiOHewwI1Q6G8MBZ51Fx0sYI/nDmUgY8w=",
           "title": "Echo Tool"
         },
         "get-annotated-message": {
@@ -199,7 +200,7 @@
           },
           "description": "Demonstrates how annotations can be used to provide metadata about content.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "includeImage": {
                 "default": false,
@@ -221,7 +222,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-0Psy3rWNIHhg2bNqiQjdTjJnOUTrs1C3VdiJbeeofFs=",
+          "integrity": "sha256-5K3bZemW9s6A6VR1ZZqVFQsHovPxoofDXDZ+Tk8+CVA=",
           "title": "Get Annotated Message Tool"
         },
         "get-env": {
@@ -233,12 +234,77 @@
           },
           "description": "Returns all environment variables, helpful for debugging MCP server configuration",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-1kNgAVd2eP1nUVnJhG7v5uzyUZghe88T5/8NR5cNYZE=",
+          "integrity": "sha256-kDou9V6w1F0P707DQvB4bYvVKTntcEY+k2S7zEtQykI=",
           "title": "Print Environment Tool"
+        },
+        "get-header-params": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Returns its region argument and the Mcp-Param-Region HTTP header it arrived in. Demonstrates x-mcp-header (a 2026-07-28 Streamable HTTP client mirrors the argument into the header) and JSON Schema 2020-12 input and output schemas.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "region": {
+                "description": "A region name, e.g. eu-west. Mirrored into the Mcp-Param-Region HTTP header.",
+                "type": "string",
+                "x-mcp-header": "Region"
+              },
+              "repeat": {
+                "default": 1,
+                "description": "How many times to repeat the region in the result (1-3)",
+                "maximum": 3,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "region"
+            ],
+            "type": "object"
+          },
+          "integrity": "sha256-UcANsq545g6/OHtedwEX8wQ2EvM7lEQv9ONyTsCjUrs=",
+          "outputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "region": {
+                "type": "string"
+              },
+              "regionHeader": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Mcp-Param-Region header the request carried, if any"
+              },
+              "repeated": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "region",
+              "regionHeader",
+              "repeated"
+            ],
+            "type": "object"
+          },
+          "title": "Get Header Params Tool"
         },
         "get-resource-links": {
           "annotations": {
@@ -249,7 +315,7 @@
           },
           "description": "Returns up to ten resource links that reference different types of resources",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "count": {
                 "default": 3,
@@ -261,7 +327,7 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-PmLIUElW/rArTJ9IcP4B16+q9J2RUIbRXLxmQQcWlpI=",
+          "integrity": "sha256-Fs1tDtHBo7M9BsnEbLm0LEKFY6B0uZuefEWrTt62iUg=",
           "title": "Get Resource Links Tool"
         },
         "get-resource-reference": {
@@ -273,7 +339,7 @@
           },
           "description": "Returns a resource reference that can be used by MCP clients",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "resourceId": {
                 "default": 1,
@@ -291,7 +357,7 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-MntpAH8rdiBse0OwRLel4hkH3/0IGeMzcrn9cfW+h3s=",
+          "integrity": "sha256-x1kETnGq87fG95fwyKmanprYLOQtomAZIt3UxMvk8mI=",
           "title": "Get Resource Reference Tool"
         },
         "get-structured-content": {
@@ -303,7 +369,7 @@
           },
           "description": "Returns structured content along with an output schema for client data validation",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "location": {
                 "description": "Choose city",
@@ -320,9 +386,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-JH6p+49tac7dcZkt3UsU4zeTVJbIdtg02CWKa2Lqh9M=",
+          "integrity": "sha256-0fqazAPWGt/s+jEsVvuCBNdf2tRapiVPOMwF50cI76M=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "conditions": {
@@ -356,7 +422,7 @@
           },
           "description": "Returns the sum of two numbers",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "a": {
                 "description": "First number",
@@ -373,7 +439,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-9D+mEpSPp1uTwADxLTcSyW3Ixq5TmjPO5+B6PgNW9PI=",
+          "integrity": "sha256-q5Zx8C1g9RBYztEo0J46PI3JCt0mII+L5NtJuazaNuI=",
           "title": "Get Sum Tool"
         },
         "get-tiny-image": {
@@ -385,11 +451,11 @@
           },
           "description": "Returns a tiny MCP logo image.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-J0OBgOcSuD+GvaJ69IQ3cmnsiBcZW8K6+/wCfOuRsto=",
+          "integrity": "sha256-hIsIbO9D9Tl11et0Tr/4i9Ij1kmiA40CjdqRKrYTfvA=",
           "title": "Get Tiny Image Tool"
         },
         "gzip-file-as-resource": {
@@ -399,9 +465,9 @@
             "openWorldHint": true,
             "readOnlyHint": false
           },
-          "description": "Compresses a single file using gzip compression. Depending upon the selected output type, returns either the compressed data as a gzipped resource or a resource link, allowing it to be downloaded in a subsequent request during the current session.",
+          "description": "Compresses a single file using gzip compression. Depending upon the selected output type, returns either the compressed data as a gzipped resource or a resource link, allowing it to be downloaded in a subsequent request: during the current session for a 2025-era client, or for ten minutes at a minted URI on protocol version 2026-07-28.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "data": {
                 "default": "https://raw.githubusercontent.com/modelcontextprotocol/servers/refs/heads/main/README.md",
@@ -411,7 +477,8 @@
               },
               "name": {
                 "default": "README.md.gz",
-                "description": "Name of the output file",
+                "description": "Name of the output file (at most 255 characters)",
+                "maxLength": 255,
                 "type": "string"
               },
               "outputType": {
@@ -426,37 +493,8 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-WjB+unn91KAH/qCuVGYfuuUotL3zERrJ8EYsuYR2mec=",
+          "integrity": "sha256-rPH/rDOm7K0UIWqjHUyfZyuEVX6mNA7aphirSvh5n+g=",
           "title": "GZip File as Resource Tool"
-        },
-        "simulate-research-query": {
-          "annotations": {
-            "destructiveHint": false,
-            "idempotentHint": false,
-            "openWorldHint": false,
-            "readOnlyHint": false
-          },
-          "description": "Simulates a deep research operation that gathers, analyzes, and synthesizes information. Demonstrates MCP task-based operations with progress through multiple stages. If 'ambiguous' is true and client supports elicitation, sends an elicitation request for clarification.",
-          "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "properties": {
-              "ambiguous": {
-                "default": false,
-                "description": "Simulate an ambiguous query that requires clarification (triggers input_required status)",
-                "type": "boolean"
-              },
-              "topic": {
-                "description": "The research topic to investigate",
-                "type": "string"
-              }
-            },
-            "required": [
-              "topic"
-            ],
-            "type": "object"
-          },
-          "integrity": "sha256-sub4UT1Uk3a4vewKYCrzVrET53BfoS40qw+X+m7Q5Fk=",
-          "title": "Simulate Research Query"
         },
         "toggle-simulated-logging": {
           "annotations": {
@@ -465,13 +503,13 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "Toggles simulated, random-leveled logging on or off.",
+          "description": "Toggles simulated, random-leveled logging on or off. Deprecated: 2025-era clients only, since protocol version 2026-07-28 removes logging/setLevel; use trigger-log-messages with a per-request log level instead.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-L+dF5Q3IFL7rwhRMDGhLrFuBV+4fLMvSycbfq+F21sk=",
+          "integrity": "sha256-VUNdEJbkGlDcpQPmfAZAjhJolZV+cqWgZ6xgfgrqfuk=",
           "title": "Toggle Simulated Logging"
         },
         "toggle-subscriber-updates": {
@@ -481,14 +519,59 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "Toggles simulated resource subscription updates on or off.",
+          "description": "Toggles simulated resource subscription updates on or off. Deprecated: 2025-era clients only, since protocol version 2026-07-28 removes resources/subscribe; use trigger-resource-update with a subscriptions/listen stream instead.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-R0OD1c2LE3sh2yndDSlvLAgOLTPLEr0d4Wg09ntfIR0=",
+          "integrity": "sha256-ABNcLocJLZ5Uv3QCwH4+UksvMv2BlFZ9X0YS/2t8biE=",
           "title": "Toggle Subscriber Updates"
+        },
+        "trigger-list-changed": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Sends a notifications/<list>/list_changed for the tool, prompt or resource list. On protocol version 2026-07-28 it is delivered on each subscriptions/listen stream that asked for that list; a 2025-era client receives it unsolicited.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "list": {
+                "description": "Which list to announce as changed",
+                "enum": [
+                  "tools",
+                  "prompts",
+                  "resources"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "list"
+            ],
+            "type": "object"
+          },
+          "integrity": "sha256-aE2Oki/FeuLu0cgm96Mq5HjZcXVJXIjHD00ibXy7jIU=",
+          "title": "Trigger List Changed Tool"
+        },
+        "trigger-log-messages": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Sends one log message at each logging level during the call. On protocol version 2026-07-28 only the messages at or above the level the request names in _meta (io.modelcontextprotocol/logLevel) are sent, and none if it names no level; a 2025-era client gets those at or above the level it set with logging/setLevel. Deprecated: logging is deprecated as of protocol version 2026-07-28.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {},
+            "type": "object"
+          },
+          "integrity": "sha256-3AsGYP7lVZWlzciDUjiuh/FfZia5CZhFFWs+qQL/L/I=",
+          "title": "Trigger Log Messages Tool"
         },
         "trigger-long-running-operation": {
           "annotations": {
@@ -499,7 +582,7 @@
           },
           "description": "Demonstrates a long running operation with progress updates.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "duration": {
                 "default": 10,
@@ -514,19 +597,43 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-ScelyNA3z5Vip8KPz+e4Lf3nUQ2iB9bKTlIHxiMYSmI=",
+          "integrity": "sha256-dtbguH5KGYPMpvAi/qI2JvpYEwCAk2u/PeCe5e5h3ow=",
           "title": "Trigger Long Running Operation Tool"
+        },
+        "trigger-resource-update": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Sends a notifications/resources/updated for a resource URI. On protocol version 2026-07-28 it is delivered on each subscriptions/listen stream whose resourceSubscriptions name the URI; a 2025-era client receives it once it has called resources/subscribe for the URI.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "uri": {
+                "description": "The URI of the resource to announce as updated, e.g. demo://resource/dynamic/text/1",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uri"
+            ],
+            "type": "object"
+          },
+          "integrity": "sha256-V4YTRVbXccGOrif/AXEKdedKzj56n5yAfSnP7KN1uM4=",
+          "title": "Trigger Resource Update Tool"
         }
       },
       "transport": "stdio"
     },
     "fetch": {
-      "integrity": "sha256-NNHEF98xfqzvhsSuw60XInkrS/2FLhn/RyL1/6QG/yI=",
+      "integrity": "sha256-P8UhhNA4GJ/VctAC/t8fawJ9K+Gbhyh8Qa5Yn2qNBRU=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-aDSbwIzSk9+134aHpmw0CjGY7Z8IEWuyqmHETensyGI=",
+        "integrity": "sha256-4AA3xcAA4W0yMvolO1wqw5sEDSWcbAu35gMK27FyHbA=",
         "name": "mcp-server-fetch",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
       "prompts": {
         "fetch": {
@@ -543,7 +650,7 @@
       },
       "serverInfo": {
         "name": "mcp-fetch",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
       "source": {
         "args": [
@@ -561,7 +668,6 @@
           },
           "description": "Fetches a URL from the internet and optionally extracts its contents as markdown.\n\nAlthough originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.",
           "inputSchema": {
-            "description": "Parameters for fetching a URL.",
             "properties": {
               "max_length": {
                 "default": 5000,
@@ -595,10 +701,10 @@
             "required": [
               "url"
             ],
-            "title": "Fetch",
+            "title": "fetchArguments",
             "type": "object"
           },
-          "integrity": "sha256-cYROXvTGJZVhNp38W0+XsHzSoOumEbMfymhaNrNNU3Y="
+          "integrity": "sha256-MEff6VJttUmO93J80qXIpIwN4Fa+z80xc14D83v1YQw="
         }
       },
       "transport": "stdio"
@@ -607,13 +713,13 @@
       "integrity": "sha256-XUP1XEpvGsMN61IW7EUlBRGqg9YBN05N2IYfeWYHgX8=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-2fN6qhpsiPSBAe0ev1qDPk4sCWdULCZQTuYc4ZY7+BDWQ1XCxLB+7dqStF2ZflgG4G/9vTwQsjxh7pjFqrrpcg==",
+        "integrity": "sha512-JT+bt9wrNIMqhGvOr49vEE9NpbkBxdjQxyLVqh3lYHsB2zGgbzePmDOGrm1glBT1DPR5YvkM6h/NXztWSRhywg==",
         "name": "@modelcontextprotocol/server-filesystem",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "serverInfo": {
         "name": "secure-filesystem-server",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "source": {
         "args": [
@@ -1248,16 +1354,17 @@
       "transport": "stdio"
     },
     "git": {
-      "integrity": "sha256-jJEcPaTjolW1MsuBfUMJD7O+iKXOUXwdDW34iga8HKE=",
+      "integrity": "sha256-s2weXaLSJCMUg0OhucTw7WtHWjYRFypLP/0wXsVqPe8=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-3uc7GUNR5aUDnxfKVI1cYQTsqoGcQU0kAAParBaam50=",
+        "integrity": "sha256-9a9Th4oOIXFDrdl6K2m082zDQ0UtXxb/udHguQ/Ir1Y=",
         "name": "mcp-server-git",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
+      "prompts": {},
       "serverInfo": {
         "name": "mcp-git",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
       "source": {
         "args": [
@@ -1295,10 +1402,10 @@
               "files",
               "repo_path"
             ],
-            "title": "GitAdd",
+            "title": "addArguments",
             "type": "object"
           },
-          "integrity": "sha256-kh7oNbjg23sf75gDVNrR/PdwLXhORhC1Q5+XggpPMi4="
+          "integrity": "sha256-pTIHYqGPjXM5Tb/jCrjgbBbCYxClisiOPt8XEBBOpg0="
         },
         "git_branch": {
           "annotations": {
@@ -1351,10 +1458,10 @@
               "branch_type",
               "repo_path"
             ],
-            "title": "GitBranch",
+            "title": "branchArguments",
             "type": "object"
           },
-          "integrity": "sha256-oi6z8VlyzljmRheUU4Og5+qd+5VOoyUlSp65kbt9Pus="
+          "integrity": "sha256-GS7Q/gAPEHwSlqCCPNby4KK9bFaYd5k6dyqix2TiWyo="
         },
         "git_checkout": {
           "annotations": {
@@ -1379,10 +1486,10 @@
               "branch_name",
               "repo_path"
             ],
-            "title": "GitCheckout",
+            "title": "checkoutArguments",
             "type": "object"
           },
-          "integrity": "sha256-+j4TjgIS+4ExrdET0DhT54vSflIFFOCQ4nNuep+MAlY="
+          "integrity": "sha256-cspG9Ee/Y9ya+e6Hrz6MWHLzdzdVm7mC6u62cDxuBrk="
         },
         "git_commit": {
           "annotations": {
@@ -1407,10 +1514,10 @@
               "message",
               "repo_path"
             ],
-            "title": "GitCommit",
+            "title": "commitArguments",
             "type": "object"
           },
-          "integrity": "sha256-Dj+oquAanYQ16Pwzug4pIqk/mfIr7ga7qr/i3J9ji2U="
+          "integrity": "sha256-fmXMXYkKiCRyLSPIvYYZ9SM1ViupU6ymoTiB4QvT8VM="
         },
         "git_create_branch": {
           "annotations": {
@@ -1447,10 +1554,10 @@
               "branch_name",
               "repo_path"
             ],
-            "title": "GitCreateBranch",
+            "title": "create_branchArguments",
             "type": "object"
           },
-          "integrity": "sha256-hprd3zeuoyDQ0wC3sQ2NO/IWK4bSaEGgVUHqmokoNMc="
+          "integrity": "sha256-sJ51WCXWgmwLTATzxfEiyF6qaT4QMoBMOi6gbQRhUr0="
         },
         "git_diff": {
           "annotations": {
@@ -1480,10 +1587,10 @@
               "repo_path",
               "target"
             ],
-            "title": "GitDiff",
+            "title": "diffArguments",
             "type": "object"
           },
-          "integrity": "sha256-2wFEIuKFYGk6RvTmG/0AMzJdgZpd9+PJQ91f1bsdjNE="
+          "integrity": "sha256-/Hxc2Lu/kNTqToYz1Y40mjFT8tal+iBvpXvyyqqlbi8="
         },
         "git_diff_staged": {
           "annotations": {
@@ -1508,10 +1615,10 @@
             "required": [
               "repo_path"
             ],
-            "title": "GitDiffStaged",
+            "title": "diff_stagedArguments",
             "type": "object"
           },
-          "integrity": "sha256-1jgqEu9DQ4/H8AzvqEE2d8nPpzLDYuXgHEDlOGI+0TI="
+          "integrity": "sha256-s0L5SH1aNm+vbbql6EvCWN+Byhm/7lpyNho1ED8jyS4="
         },
         "git_diff_unstaged": {
           "annotations": {
@@ -1536,10 +1643,10 @@
             "required": [
               "repo_path"
             ],
-            "title": "GitDiffUnstaged",
+            "title": "diff_unstagedArguments",
             "type": "object"
           },
-          "integrity": "sha256-mGVOpKcdifpMhuRjpVzmstlzLA6nFeOfyPLG1h2x+XA="
+          "integrity": "sha256-JuQyoGDdaPs8F8zDOgvDpyN75rIWYrp0odnj/LmEEzA="
         },
         "git_log": {
           "annotations": {
@@ -1590,10 +1697,10 @@
             "required": [
               "repo_path"
             ],
-            "title": "GitLog",
+            "title": "logArguments",
             "type": "object"
           },
-          "integrity": "sha256-9C0Aj0Sm/V7YDQY2acvheeNBck7TE6edzXtNOXKZQbg="
+          "integrity": "sha256-bAdAWsN6d+4ggzhPfMcQgGmyYk/47xP23hIsNRp1+3w="
         },
         "git_reset": {
           "annotations": {
@@ -1613,10 +1720,10 @@
             "required": [
               "repo_path"
             ],
-            "title": "GitReset",
+            "title": "resetArguments",
             "type": "object"
           },
-          "integrity": "sha256-4u32gnEANYZh6RLwoHBQUV4V1MRh9AVKIclxRpp9o4k="
+          "integrity": "sha256-4UfVMWzHPLf/fvElqtUBivcOTDE85r0ONf2Z7X7yJbQ="
         },
         "git_show": {
           "annotations": {
@@ -1641,10 +1748,10 @@
               "repo_path",
               "revision"
             ],
-            "title": "GitShow",
+            "title": "showArguments",
             "type": "object"
           },
-          "integrity": "sha256-MKNjWJ3+AAmYq0IVkUbIw8+dMhLuo6kyzDHASQYuuh4="
+          "integrity": "sha256-EF3wgt/E+HpGWILspIuZrtvWBKS4/G6nkc+IhtM+Wdw="
         },
         "git_status": {
           "annotations": {
@@ -1664,25 +1771,25 @@
             "required": [
               "repo_path"
             ],
-            "title": "GitStatus",
+            "title": "statusArguments",
             "type": "object"
           },
-          "integrity": "sha256-cXSR+Nc6iFk79uwuAvQZySlzePGHuQ1hVe1aQFTkGpc="
+          "integrity": "sha256-o9chM6IO1n/PYCjUrhW2MR3wdMckj2y14JufVjk3vFg="
         }
       },
       "transport": "stdio"
     },
     "memory": {
-      "integrity": "sha256-TqVbpaHovelt7xV1i9C/bf1ZVtgUw/6jNIwVE2Lt4eY=",
+      "integrity": "sha256-Oc2tC7zj3oJCn6JlTCqpY4lBSy1Ka1Q371i5karlkLA=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-UDMtMrw2xeI16mcn7O4fesp9Pf3hYh91thuU5KSz0BxKqwnTwEytZKjHfkrqxxmKp0r4QHoiEkMV99UmadmODw==",
+        "integrity": "sha512-h+oxQCpK6FOuhlPB9hAcSihAAahcnijuGTZGcXStGOL4UzFYB4ap+pvtSelxchkZlz7tnpY/e0sONaAs24Rurw==",
         "name": "@modelcontextprotocol/server-memory",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "serverInfo": {
         "name": "memory-server",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "source": {
         "args": [
@@ -1701,7 +1808,7 @@
           },
           "description": "Add new observations to existing entities in the knowledge graph",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "observations": {
                 "items": {
@@ -1732,9 +1839,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-dygqtdlMfC6VtWRh314QezwZ+BVl37oZlg/Mfmzz7KI=",
+          "integrity": "sha256-eqZVQj6ydanYL6WC8NneoLLD4sb3vLvMv/diCnDAK9Q=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "results": {
@@ -1776,7 +1883,7 @@
           },
           "description": "Create multiple new entities in the knowledge graph. An entity whose name already exists, or repeats an earlier entity in the same call, is skipped and its observations are not added; the result lists the skipped names in `skipped`. Use add_observations to add observations to an existing entity.",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "entities": {
                 "items": {
@@ -1812,9 +1919,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-4puqhwSULuPmAq+nmFPxe9edWqXZ2S8SWnEV1ErGTUs=",
+          "integrity": "sha256-fCk+oP9dX3RsP7BHixa2qmIUBGz6ASPIn1nCsf9npoE=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "entities": {
@@ -1869,7 +1976,7 @@
           },
           "description": "Create multiple new relations between entities in the knowledge graph. Relations should be in active voice",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "relations": {
                 "items": {
@@ -1902,9 +2009,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-0GO//p9FeAjWLNnukfz7E1X87z7DW95I4gos0u4GeMs=",
+          "integrity": "sha256-s+5/j6cUG0ta7wWgD9jSqx3P6jGY7cTIn5/gmdIAht8=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "relations": {
@@ -1950,7 +2057,7 @@
           },
           "description": "Delete multiple entities and their associated relations from the knowledge graph",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "entityNames": {
                 "description": "An array of entity names to delete",
@@ -1965,9 +2072,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-ppGA5E4RXssTyBG8jkJ99MPQSdPprrD6kKzHB/MRyaU=",
+          "integrity": "sha256-IzFAgBm4Irlbg1UT+gLsL8Bwp4UXbNSISGxxQFJyRbQ=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "message": {
@@ -1994,7 +2101,7 @@
           },
           "description": "Delete specific observations from entities in the knowledge graph",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "deletions": {
                 "items": {
@@ -2025,9 +2132,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-Lk1Qd6htJtah+o0QQMdMdWYvqUZB3skiXbPNIeHTr+g=",
+          "integrity": "sha256-pbiEn8TjiwcFNa4VgF5GTzjBcb5k1EcfQEZ6CwODmnA=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "message": {
@@ -2054,7 +2161,7 @@
           },
           "description": "Delete multiple relations from the knowledge graph",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "relations": {
                 "description": "An array of relations to delete",
@@ -2088,9 +2195,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-2q6Vg14YpTV3O7Q7Pew7gTcBFUvRPRkQ9WbyEDzx/Ho=",
+          "integrity": "sha256-dbCfGUAxaG48sQUWRKn0O7fxFhagRFqahNRVCVttJhc=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "message": {
@@ -2117,7 +2224,7 @@
           },
           "description": "Open specific nodes in the knowledge graph by their names",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "names": {
                 "description": "An array of entity names to retrieve",
@@ -2132,9 +2239,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-Tm5NzgPJTCeoe0QNpDK9CYLb5+9KGKPma7qj3ycYOlk=",
+          "integrity": "sha256-m6taEfQNpr/VVWhdkEnFrF3wX5AoOEg4Q98BMJspmbU=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "entities": {
@@ -2210,13 +2317,13 @@
           },
           "description": "Read the entire knowledge graph",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-i+QqdslZzEXcbC9y4FGDSV6aXQO56d8D2iJI1YmZktU=",
+          "integrity": "sha256-zQ3jEB+YMn3o87iyYMSPY7ibWsYzfhE4pKzMz18mRN0=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "entities": {
@@ -2292,7 +2399,7 @@
           },
           "description": "Search for nodes in the knowledge graph based on a query",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "query": {
                 "description": "The search query to match against entity names, types, and observation content",
@@ -2305,9 +2412,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-fnEUbswXqP4ntN5b5D59M0qwOTU7mKqSCBsEIOA6zBI=",
+          "integrity": "sha256-5imJuy+stwxVd05e1+n/lY1/dXzgv3FnGBsqQpzFw3Q=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "entities": {
@@ -3315,16 +3422,16 @@
       "transport": "stdio"
     },
     "sequential-thinking": {
-      "integrity": "sha256-nuDDrWjlC29NhZpGULAbbPiv7fTPOWBG77iMLyDMdHU=",
+      "integrity": "sha256-XdXBZ5OIESEwm1CiSXtywSoIEe0NbYe+ZYS91gd9dD4=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-ykTmeS4Eejs+FESDrD73mDBNYCkb+cCZJ1MWuv7/vwucbVgGfEbBL5HVt2nVw0/vNF8jz+o9sO/WmxxfXt0J6w==",
+        "integrity": "sha512-LAljkLByTHuOOPoQHAGNX5EiUJAvYuuTG7yEvdK5pRg7s7oxchNh8LwSkcuW3Y8bvQk4uZgjbjH3x7rNKpJ3Iw==",
         "name": "@modelcontextprotocol/server-sequential-thinking",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "serverInfo": {
         "name": "sequential-thinking-server",
-        "version": "1.0.0"
+        "version": "2.0.0"
       },
       "source": {
         "args": [
@@ -3343,7 +3450,7 @@
           },
           "description": "A detailed tool for dynamic and reflective problem-solving through thoughts.\nThis tool helps analyze problems through a flexible thinking process that can adapt and evolve.\nEach thought can build on, question, or revise previous insights as understanding deepens.\n\nWhen to use this tool:\n- Breaking down complex problems into steps\n- Planning and design with room for revision\n- Analysis that might need course correction\n- Problems where the full scope might not be clear initially\n- Problems that require a multi-step solution\n- Tasks that need to maintain context over multiple steps\n- Situations where irrelevant information needs to be filtered out\n\nKey features:\n- You can adjust total_thoughts up or down as you progress\n- You can question or revise previous thoughts\n- You can add more thoughts even after reaching what seemed like the end\n- You can express uncertainty and explore alternative approaches\n- Not every thought needs to build linearly - you can branch or backtrack\n- Generates a solution hypothesis\n- Verifies the hypothesis based on the Chain of Thought steps\n- Repeats the process until satisfied\n- Provides a correct answer\n\nParameters explained:\n- thought: Your current thinking step, which can include:\n  * Regular analytical steps\n  * Revisions of previous thoughts\n  * Questions about previous decisions\n  * Realizations about needing more analysis\n  * Changes in approach\n  * Hypothesis generation\n  * Hypothesis verification\n- nextThoughtNeeded: True if you need more thinking, even if at what seemed like the end\n- thoughtNumber: Current number in sequence (can go beyond initial total if needed)\n- totalThoughts: Current estimate of thoughts needed (can be adjusted up/down)\n- isRevision: A boolean indicating if this thought revises previous thinking\n- revisesThought: If is_revision is true, which thought number is being reconsidered\n- branchFromThought: If branching, which thought number is the branching point\n- branchId: Identifier for the current branch (if any)\n- needsMoreThoughts: If reaching end but realizing more thoughts needed\n\nYou should:\n1. Start with an initial estimate of needed thoughts, but be ready to adjust\n2. Feel free to question or revise previous thoughts\n3. Don't hesitate to add more thoughts if needed, even at the \"end\"\n4. Express uncertainty when present\n5. Mark thoughts that revise previous thinking or branch into new paths\n6. Ignore information that is irrelevant to the current step\n7. Generate a solution hypothesis when appropriate\n8. Verify the hypothesis based on the Chain of Thought steps\n9. Repeat the process until satisfied with the solution\n10. Provide a single, ideally correct answer as the final output\n11. Only set nextThoughtNeeded to false when truly done and a satisfactory answer is reached",
           "inputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "branchFromThought": {
                 "description": "Branching point thought number",
@@ -3407,9 +3514,9 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-duM7UCGpC/FHiHXHcfIhI0XfIH1md2D1DaIfs60f1G0=",
+          "integrity": "sha256-U+Dp5UPq0HLNpMULK6iqx5BJogyiIRARTc43Qt4IdAc=",
           "outputSchema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
               "branches": {
@@ -3446,16 +3553,17 @@
       "transport": "stdio"
     },
     "time": {
-      "integrity": "sha256-AjR1h0qCD6rgvzknxCQH7jkuqHB8qv1R6AeXVBUARt4=",
+      "integrity": "sha256-UMrhRuYJmgiTEY0VNdAKZcilgL9s6Ea0AowpdwVDBIw=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-CbGtXfNlbH7ysmv2Rji6IKARV3InVrjDTbaBEzk8C8I=",
+        "integrity": "sha256-TgbNK1UvneHsjAW6JSC2I7ddmYVnY3ptbcOJkBJePpE=",
         "name": "mcp-server-time",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
+      "prompts": {},
       "serverInfo": {
         "name": "mcp-time",
-        "version": "2026.10.10"
+        "version": "2026.10.19"
       },
       "source": {
         "args": [
@@ -3476,14 +3584,17 @@
             "properties": {
               "source_timezone": {
                 "description": "Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use 'Etc/UTC' as local timezone if no source timezone provided by the user.",
+                "title": "Source Timezone",
                 "type": "string"
               },
               "target_timezone": {
                 "description": "Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Use 'Etc/UTC' as local timezone if no target timezone provided by the user.",
+                "title": "Target Timezone",
                 "type": "string"
               },
               "time": {
                 "description": "Time to convert in 24-hour format (HH:MM)",
+                "title": "Time",
                 "type": "string"
               }
             },
@@ -3492,9 +3603,61 @@
               "target_timezone",
               "time"
             ],
+            "title": "convert_timeArguments",
             "type": "object"
           },
-          "integrity": "sha256-U5XTgGBFP2eSl6a2n1s0X6Ug0p8FvtSxrWPBRvsVmFo="
+          "integrity": "sha256-MP8LW3S7u0ut0OGbzNlfz/wrsHR6IhGf/3+rjdpKbwo=",
+          "outputSchema": {
+            "$defs": {
+              "TimeResult": {
+                "properties": {
+                  "datetime": {
+                    "title": "Datetime",
+                    "type": "string"
+                  },
+                  "day_of_week": {
+                    "title": "Day Of Week",
+                    "type": "string"
+                  },
+                  "is_dst": {
+                    "title": "Is Dst",
+                    "type": "boolean"
+                  },
+                  "timezone": {
+                    "title": "Timezone",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "datetime",
+                  "day_of_week",
+                  "is_dst",
+                  "timezone"
+                ],
+                "title": "TimeResult",
+                "type": "object"
+              }
+            },
+            "properties": {
+              "source": {
+                "$ref": "#/$defs/TimeResult"
+              },
+              "target": {
+                "$ref": "#/$defs/TimeResult"
+              },
+              "time_difference": {
+                "title": "Time Difference",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "target",
+              "time_difference"
+            ],
+            "title": "TimeConversionResult",
+            "type": "object"
+          }
         },
         "get_current_time": {
           "annotations": {
@@ -3508,15 +3671,45 @@
             "properties": {
               "timezone": {
                 "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use 'Etc/UTC' as local timezone if no timezone provided by the user.",
+                "title": "Timezone",
                 "type": "string"
               }
             },
             "required": [
               "timezone"
             ],
+            "title": "get_current_timeArguments",
             "type": "object"
           },
-          "integrity": "sha256-lUM1YLx5szmY9Ow5UpcD+T1koaOFxRGB9BNRpX3Vk6I="
+          "integrity": "sha256-VhLAJNFm71/Uk7PnpKRuI8fRYp/DXVj3+5f+jRt2Uqk=",
+          "outputSchema": {
+            "properties": {
+              "datetime": {
+                "title": "Datetime",
+                "type": "string"
+              },
+              "day_of_week": {
+                "title": "Day Of Week",
+                "type": "string"
+              },
+              "is_dst": {
+                "title": "Is Dst",
+                "type": "boolean"
+              },
+              "timezone": {
+                "title": "Timezone",
+                "type": "string"
+              }
+            },
+            "required": [
+              "datetime",
+              "day_of_week",
+              "is_dst",
+              "timezone"
+            ],
+            "title": "TimeResult",
+            "type": "object"
+          }
         }
       },
       "transport": "stdio"

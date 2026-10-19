@@ -1,35 +1,35 @@
 {
-  "lastChecked": "2026-10-18",
+  "lastChecked": "2026-10-19",
   "servers": [
     {
       "name": "context7",
-      "status": "ok",
-      "version": "4.4.2"
+      "status": "drift",
+      "version": "4.4.3"
     },
     {
       "name": "everything",
-      "status": "ok",
-      "version": "1.0.0"
+      "status": "drift",
+      "version": "2.0.0"
     },
     {
       "name": "fetch",
-      "status": "ok",
-      "version": "2026.10.10"
+      "status": "drift",
+      "version": "2026.10.19"
     },
     {
       "name": "filesystem",
-      "status": "ok",
-      "version": "1.0.0"
+      "status": "drift",
+      "version": "2.0.0"
     },
     {
       "name": "git",
-      "status": "ok",
-      "version": "2026.10.10"
+      "status": "drift",
+      "version": "2026.10.19"
     },
     {
       "name": "memory",
-      "status": "ok",
-      "version": "1.0.0"
+      "status": "drift",
+      "version": "2.0.0"
     },
     {
       "name": "playwright",
@@ -38,13 +38,13 @@
     },
     {
       "name": "sequential-thinking",
-      "status": "ok",
-      "version": "1.0.0"
+      "status": "drift",
+      "version": "2.0.0"
     },
     {
       "name": "time",
-      "status": "ok",
-      "version": "2026.10.10"
+      "status": "drift",
+      "version": "2026.10.19"
     }
   ],
   "notChecked": [],
