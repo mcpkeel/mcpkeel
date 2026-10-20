@@ -80,6 +80,11 @@ export function host() {
   return process.env.PLUGIN_ROOT ? "codex" : "claude-code";
 }
 
+/** How to reach the review and verify skills in the host at hand. */
+export function skillName(skill) {
+  return host() === "codex" ? `the mcpkeel-${skill} skill` : `/mcpkeel:${skill}`;
+}
+
 /**
  * One state file per project, so two projects open at once do not overwrite
  * each other. It lives in the data directory the host gives the plugin, or

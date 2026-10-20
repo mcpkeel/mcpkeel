@@ -2,7 +2,7 @@
 // mcp.lock asks the user first, or is denied, as the plugin is configured.
 // It reads the state the last check wrote and never touches the network, so
 // it adds nothing noticeable to a tool call.
-import { options, plainName, projectDir, readState, readStdin } from "./lib.mjs";
+import { options, plainName, projectDir, readState, readStdin, skillName } from "./lib.mjs";
 
 const input = await readStdin();
 const server = input.mcp_server?.name ?? /^mcp__(.+?)__/.exec(input.tool_name ?? "")?.[1];
@@ -38,11 +38,11 @@ const name = plainName(server);
 const reason =
   decision === "ask"
     ? entry.status === "drifted"
-      ? `mcpkeel: ${name} no longer matches mcp.lock (${entry.changes} change${entry.changes === 1 ? "" : "s"}, ${entry.highest}: ${entry.subjects.join("; ")}). Allow only if you have reviewed it; /mcpkeel:review shows the diff.`
+      ? `mcpkeel: ${name} no longer matches mcp.lock (${entry.changes} change${entry.changes === 1 ? "" : "s"}, ${entry.highest}: ${entry.subjects.join("; ")}). Allow only if you have reviewed it; ${skillName("review")} shows the diff.`
       : `mcpkeel could not verify ${name} against mcp.lock this session.`
     : entry.status === "drifted"
-      ? `Blocked by mcpkeel: MCP server ${name} no longer matches mcp.lock (${entry.highest}; ${entry.codes.join(", ") || "no code"}). Do not retry. Tell the user, and suggest /mcpkeel:review.`
-      : `Blocked by mcpkeel: MCP server ${name} could not be verified against mcp.lock. Do not retry. Tell the user, and suggest /mcpkeel:verify.`;
+      ? `Blocked by mcpkeel: MCP server ${name} no longer matches mcp.lock (${entry.highest}; ${entry.codes.join(", ") || "no code"}). Do not retry. Tell the user, and suggest ${skillName("review")}.`
+      : `Blocked by mcpkeel: MCP server ${name} could not be verified against mcp.lock. Do not retry. Tell the user, and suggest ${skillName("verify")}.`;
 
 process.stdout.write(
   JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: decision, permissionDecisionReason: reason } }),
