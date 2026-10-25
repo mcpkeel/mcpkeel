@@ -93,9 +93,9 @@
       "integrity": "sha256-3Vx3JVtiVUJ6maftxTVfFB39PWy8hklM4rJGs5gNZVo=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-Dah6yqdsz4qJ7rolykZM3gobhgyscjewpre/3LO2r0Q0RN4z0FzdhNzK6bJtZuJ2q4qbJL+s2upSUn9KgeSdpg==",
+        "integrity": "sha512-n20owNfIqwwgwhdvadkd2d1rKPLwykLypJLF/52+TXwF1n+gX92LcHWHt22yUYKY5AqbJqmY/m6/N9wz9W03Pw==",
         "name": "@modelcontextprotocol/server-everything",
-        "version": "2.0.0"
+        "version": "2.0.1"
       },
       "prompts": {
         "args-prompt": {
@@ -157,7 +157,7 @@
       },
       "serverInfo": {
         "name": "mcp-servers/everything",
-        "version": "2.0.0"
+        "version": "2.0.1"
       },
       "source": {
         "args": [
@@ -631,9 +631,9 @@
       "integrity": "sha256-P8UhhNA4GJ/VctAC/t8fawJ9K+Gbhyh8Qa5Yn2qNBRU=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-4AA3xcAA4W0yMvolO1wqw5sEDSWcbAu35gMK27FyHbA=",
+        "integrity": "sha256-UoBzLYqnzcStJA/2jZ646eiZ3S5sBUggCPxcxqVHe04=",
         "name": "mcp-server-fetch",
-        "version": "2026.10.19"
+        "version": "2026.10.24"
       },
       "prompts": {
         "fetch": {
@@ -650,7 +650,7 @@
       },
       "serverInfo": {
         "name": "mcp-fetch",
-        "version": "2026.10.19"
+        "version": "2026.10.24"
       },
       "source": {
         "args": [
@@ -713,13 +713,13 @@
       "integrity": "sha256-XUP1XEpvGsMN61IW7EUlBRGqg9YBN05N2IYfeWYHgX8=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-JT+bt9wrNIMqhGvOr49vEE9NpbkBxdjQxyLVqh3lYHsB2zGgbzePmDOGrm1glBT1DPR5YvkM6h/NXztWSRhywg==",
+        "integrity": "sha512-K6n1daveB54TybQECAIzSp8DYq014Xfff159OtD1zjB48PONyMcQwyfMPw8jvhZnua/Jd+R/2HcCbTC3YVc3ag==",
         "name": "@modelcontextprotocol/server-filesystem",
-        "version": "2.0.0"
+        "version": "2.0.1"
       },
       "serverInfo": {
         "name": "secure-filesystem-server",
-        "version": "2.0.0"
+        "version": "2.0.1"
       },
       "source": {
         "args": [

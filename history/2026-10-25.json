@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-25",
+  "changes": 6,
+  "bySeverity": {
+    "critical": 0,
+    "high": 3,
+    "medium": 0,
+    "low": 3
+  },
+  "servers": [
+    "everything",
+    "fetch",
+    "filesystem"
+  ],
+  "findings": [
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}
