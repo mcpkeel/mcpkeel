@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-10-25",
+  "lastChecked": "2026-10-26",
   "servers": [
     {
       "name": "context7",
@@ -8,17 +8,17 @@
     },
     {
       "name": "everything",
-      "status": "drift",
+      "status": "ok",
       "version": "2.0.1"
     },
     {
       "name": "fetch",
-      "status": "drift",
+      "status": "ok",
       "version": "2026.10.24"
     },
     {
       "name": "filesystem",
-      "status": "drift",
+      "status": "ok",
       "version": "2.0.1"
     },
     {
