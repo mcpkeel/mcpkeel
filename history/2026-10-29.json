@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-29",
+  "changes": 17,
+  "bySeverity": {
+    "critical": 0,
+    "high": 11,
+    "medium": 0,
+    "low": 6
+  },
+  "servers": [
+    "everything",
+    "fetch",
+    "filesystem",
+    "git",
+    "memory",
+    "time"
+  ],
+  "findings": [
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK103",
+      "owasp": "MCP03_2025",
+      "kind": "server.instructions.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "everything",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "fetch",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "filesystem",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "git",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "git",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "git",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "git",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "memory",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    },
+    {
+      "server": "time",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "time",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}

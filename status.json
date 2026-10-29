@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-10-28",
+  "lastChecked": "2026-10-29",
   "servers": [
     {
       "name": "context7",
@@ -8,28 +8,28 @@
     },
     {
       "name": "everything",
-      "status": "ok",
-      "version": "2.0.1"
+      "status": "drift",
+      "version": "2.1.0"
     },
     {
       "name": "fetch",
-      "status": "ok",
-      "version": "2026.10.24"
+      "status": "drift",
+      "version": "2026.10.28"
     },
     {
       "name": "filesystem",
-      "status": "ok",
-      "version": "2.0.1"
+      "status": "drift",
+      "version": "2.1.0"
     },
     {
       "name": "git",
-      "status": "ok",
-      "version": "2026.10.19"
+      "status": "drift",
+      "version": "2026.10.28"
     },
     {
       "name": "memory",
-      "status": "ok",
-      "version": "2.0.0"
+      "status": "drift",
+      "version": "2.0.1"
     },
     {
       "name": "playwright",
@@ -43,8 +43,8 @@
     },
     {
       "name": "time",
-      "status": "ok",
-      "version": "2026.10.19"
+      "status": "drift",
+      "version": "2026.10.28"
     }
   ],
   "notChecked": [],
