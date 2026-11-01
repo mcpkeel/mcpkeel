@@ -2486,16 +2486,16 @@
       "transport": "stdio"
     },
     "playwright": {
-      "integrity": "sha256-0rO1sARwSj13TPaQ1xryWonUuD690WM6JR8hm7Ryj3c=",
+      "integrity": "sha256-Dqwgb3fZuBq+KnBjxhFds3AF3icPOUNtD+G9b0F9rhg=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg==",
+        "integrity": "sha512-weqLrA7/D8MJzNV9/t3Hnjp100tS2sxFXKeb2gH6Nhktqmdfvx5qRA9AZ5Mhjnre1jY0wltsrRK5VZS5NBgcvw==",
         "name": "@playwright/mcp",
-        "version": "0.0.83"
+        "version": "0.0.84"
       },
       "serverInfo": {
         "name": "Playwright",
-        "version": "1.64.0-alpha-1790635538000"
+        "version": "1.65.0-alpha-2026-10-30"
       },
       "source": {
         "args": [
@@ -2928,6 +2928,10 @@
                 "description": "Save results to a file instead of returning them in the response. Relative file names are resolved against the workspace root.",
                 "type": "string"
               },
+              "maxResults": {
+                "description": "Maximum number of matching items to return. Defaults to returning all matches.",
+                "type": "number"
+              },
               "regex": {
                 "description": "Regular expression to search for in the page snapshot. Matching is case-sensitive by default; wrap the pattern in slashes to add flags, e.g. \"/error/i\" for case-insensitive. Provide either text or regex, not both.",
                 "type": "string"
@@ -2939,7 +2943,7 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-D0tBrngJZE8HFwysrzq+p7XuLH+82RXu1eCgM18HqWg="
+          "integrity": "sha256-b2nBOo6UMb19HUW1ZIZkVV+4g1LBFfN2sJ0KRUpIMOw="
         },
         "browser_handle_dialog": {
           "annotations": {
@@ -3089,6 +3093,10 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
+              "all": {
+                "description": "Return all network requests since the beginning of the session, not just since the last navigation. Defaults to false.",
+                "type": "boolean"
+              },
               "filename": {
                 "description": "File name to save the network requests to. Relative file names are resolved against the workspace root. If not provided, requests are returned as text.",
                 "type": "string"
@@ -3108,7 +3116,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-N5YPB67sMBUW5oSZVGJU81h9Uo1GFf+gRCYK9D4fgtw="
+          "integrity": "sha256-ZQrMXe6U6dSRRx8BO+P0TnvIiUrKC2GNkinAuiTii0E="
         },
         "browser_press_key": {
           "annotations": {
@@ -3283,6 +3291,10 @@
                 "description": "Tab index, used for close/select. If omitted for close, current tab is closed.",
                 "type": "number"
               },
+              "isolatedContext": {
+                "description": "Name of an isolated browser context to create the new tab in, used for new. Tabs in the same isolated context share cookies and storage, tabs in different contexts are fully isolated. If omitted or \"default\", the tab is created in the default context.",
+                "type": "string"
+              },
               "url": {
                 "description": "URL to navigate to in the new tab, used for new.",
                 "type": "string"
@@ -3293,7 +3305,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-cLEkAnIVgekVM7Sp/VWVoT1ENT9OiY9S43VvHg49Fvg="
+          "integrity": "sha256-s22ResJlYE+TLTqhRLpQQMGWZp233B5EUo6Pse3LTHw="
         },
         "browser_take_screenshot": {
           "annotations": {
@@ -3397,7 +3409,7 @@
             "readOnlyHint": true,
             "title": "Wait for"
           },
-          "description": "Wait for text to appear or disappear or a specified time to pass",
+          "description": "Wait for text to appear or disappear or a specified time to pass. When both text and textGone are provided, waits for the first one to happen",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -3411,13 +3423,13 @@
                 "type": "string"
               },
               "time": {
-                "description": "The time to wait in seconds, at most 30",
+                "description": "The time to wait in seconds, at most 30. When combined with text or textGone, serves as a timeout for them instead of the default action timeout",
                 "type": "number"
               }
             },
             "type": "object"
           },
-          "integrity": "sha256-FL1rgFXd440chplNbh41TKIpeTqjD7tB2CYatz1oBmQ="
+          "integrity": "sha256-jTUdoGao7f6/ygbbbBSssvzi5pzoKrTBExqSAAsAzI8="
         }
       },
       "transport": "stdio"
