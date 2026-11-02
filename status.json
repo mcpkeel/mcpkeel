@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-11-01",
+  "lastChecked": "2026-11-02",
   "servers": [
     {
       "name": "context7",
@@ -33,7 +33,7 @@
     },
     {
       "name": "playwright",
-      "status": "drift",
+      "status": "ok",
       "version": "1.65.0-alpha-2026-10-30"
     },
     {
