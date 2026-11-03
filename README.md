@@ -2,10 +2,11 @@
 
 Every night, [mcpkeel](https://github.com/mcpkeel/mcpkeel) starts a set of popular public MCP servers the way most configs do, without a pinned version, and compares what they tell an agent with the night before. This branch keeps what it found.
 
-Last checked: **2026-11-02**, 9 servers.
+Last checked: **2026-11-03**, 9 servers.
 
 | Date | Changes | Servers |
 | --- | --- | --- |
+| [2026-11-03](history/2026-11-03.md) | 2 (1 high, 1 low) | `context7` |
 | [2026-11-01](history/2026-11-01.md) | 7 (3 high, 3 medium, 1 low) | `playwright` |
 | [2026-10-29](history/2026-10-29.md) | 17 (11 high, 6 low) | `everything`, `fetch`, `filesystem`, `git`, `memory`, `time` |
 | [2026-10-25](history/2026-10-25.md) | 6 (3 high, 3 low) | `everything`, `fetch`, `filesystem` |
