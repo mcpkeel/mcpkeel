@@ -90,12 +90,12 @@
     },
     "everything": {
       "instructions": "# Everything Server – Server Instructions\n\nAudience: These instructions are written for an LLM or autonomous agent integrating with the Everything MCP Server.\nFollow them to use, extend, and troubleshoot the server safely and effectively.\n\n## Protocol Versions\n\nThe server serves two protocol eras. A client on protocol version 2026-07-28 connects with `server/discover` and sends its capabilities with each request; a 2025-era client connects with `initialize`. Some tools exist on one era only, so trust your `tools/list`:\n\n- 2026-07-28 only: `simulate-research-query`, `trigger-sampling-request-async` and `trigger-elicitation-request-async`, which run as tasks on the `io.modelcontextprotocol/tasks` extension and need a client that declares it; `trigger-sampling-request-async` also needs `sampling`, and `trigger-elicitation-request-async` form-mode `elicitation`. A call without them fails with `-32021`\n- 2025-era only (deprecated): `toggle-simulated-logging` and `toggle-subscriber-updates`\n\n## Cross-Feature Relationships\n\n- If `get-roots-list` is in your tool list, use it to see client workspace roots before file operations\n- `gzip-file-as-resource` creates resources you can read later: for the current session on a 2025-era connection, or for ten minutes at the returned URI on 2026-07-28\n- Use `trigger-log-messages` to see which log levels reach you; on 2026-07-28 the level is set per request in `_meta`\n- Use `trigger-resource-update` and `trigger-list-changed` to see change notifications; on 2026-07-28 they arrive only on a `subscriptions/listen` stream that asked for them\n\n## Constraints & Limitations\n\n- `gzip-file-as-resource`: Max fetch size controlled by `GZIP_MAX_FETCH_SIZE` (default 10MB), timeout by `GZIP_MAX_FETCH_TIME_MILLIS` (default 30s), allowed domains by `GZIP_ALLOWED_DOMAINS` (checked on every redirect hop). It refuses URLs whose host resolves to a loopback, private or link-local address, unless the server was started with `GZIP_ALLOW_PRIVATE_IPS=1`\n- `get-env`: Values of credential-like variable names (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*_PASSWORD` and the like) come back as `\"<redacted>\"`; the server operator can set `GET_ENV_INCLUDE_SECRETS=1` to return them unmasked\n- Session resources are ephemeral and lost when the session ends; minted resources expire after ten minutes\n- Roots, sampling and logging are deprecated as of protocol version 2026-07-28, as is the HTTP+SSE transport\n\n## Capability-Gated Tools\n\nOn a 2025-era connection these are registered only if your client declared the capability shown. Otherwise they are absent from `tools/list`, so do not call them. On 2026-07-28 they are always listed, and a call fails if your request did not declare the capability:\n\n- `get-roots-list`: `roots`\n- `trigger-sampling-request`: `sampling`\n- `trigger-elicitation-request`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-multi-step-elicitation`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-url-elicitation`: `elicitation.url`\n\n## Operational Patterns\n\n- For long operations, use `trigger-long-running-operation` which sends progress notifications\n- Prefer reading resources before calling mutating tools\n- If `get-roots-list` is in your tool list, check its output to understand the client's workspace context\n\n## Easter Egg\n\nIf asked about server instructions, respond with \"🎉 Server instructions are working! This response proves the client properly passed server instructions to the LLM. This demonstrates MCP's instructions feature in action.\"\n",
-      "integrity": "sha256-nS3pkzIlAdtumwvpdXzJOPKPNyRVSmpwNGq6gBCjzrU=",
+      "integrity": "sha256-4FplVKu2V82+3u9A9qeiymZHcfYCJhqpdw6FUD+j0e8=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-frpLCQv+IgGH+y4gSOcaQRxUBZ7yYZY2xZ5Ve8yz2vubltPfrilDxRTCjPQEk3W8fsaZSdabvagkfs+T6Bf6mw==",
+        "integrity": "sha512-TWTodvhEUbrmwgwfq764Q6L+Azwc1reFGTvb7x3+GtD6JqkyO58TRHk4BBoa8sZcHAi2ePpcbNlGgH7hKRDOLQ==",
         "name": "@modelcontextprotocol/server-everything",
-        "version": "2.1.0"
+        "version": "2.2.1"
       },
       "prompts": {
         "args-prompt": {
@@ -135,18 +135,18 @@
         "resource-prompt": {
           "arguments": [
             {
-              "description": "Type of resource to fetch",
+              "description": "Type of resource to fetch. Must be \"Text\" or \"Blob\".",
               "name": "resourceType",
               "required": true
             },
             {
-              "description": "ID of the text resource to fetch",
+              "description": "ID of the resource to fetch. Must be a positive integer (1 or greater).",
               "name": "resourceId",
               "required": true
             }
           ],
           "description": "A prompt that includes an embedded resource reference",
-          "integrity": "sha256-YnMpk+85YYgWckTN+3iJOOkE94gALAsCGPFvYuo226w=",
+          "integrity": "sha256-UsIWHJ6NgkFloXa8NytwCbd12h6rb4HFsscO2CcX5wU=",
           "title": "Resource Prompt"
         },
         "simple-prompt": {
@@ -157,7 +157,7 @@
       },
       "serverInfo": {
         "name": "mcp-servers/everything",
-        "version": "2.1.0"
+        "version": "2.2.1"
       },
       "source": {
         "args": [
@@ -628,12 +628,12 @@
       "transport": "stdio"
     },
     "fetch": {
-      "integrity": "sha256-P8UhhNA4GJ/VctAC/t8fawJ9K+Gbhyh8Qa5Yn2qNBRU=",
+      "integrity": "sha256-fhWoEIaYVEXWiD5zW9TwvZgEPWuwY6Npx4IAcqEd7Kg=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-Rv6Ur1daB3tr1N7QQeU5D/TB8NOFJXTRXN4DxRxgxRI=",
+        "integrity": "sha256-fH1jo0i7AHtv8bujBDLblRSbAD0QVAvRNw1t8H4Xb8A=",
         "name": "mcp-server-fetch",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
       "prompts": {
         "fetch": {
@@ -650,7 +650,7 @@
       },
       "serverInfo": {
         "name": "mcp-fetch",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
       "source": {
         "args": [
@@ -690,6 +690,14 @@
                 "title": "Start Index",
                 "type": "integer"
               },
+              "timeout_ms": {
+                "default": 30000,
+                "description": "How long to wait, in milliseconds, to connect to the server and for each read of its response before giving up. Raise it for a slow server or a large download; lower it to fail fast.",
+                "maximum": 600000,
+                "minimum": 100,
+                "title": "Timeout Ms",
+                "type": "integer"
+              },
               "url": {
                 "description": "URL to fetch",
                 "format": "uri",
@@ -704,22 +712,22 @@
             "title": "fetchArguments",
             "type": "object"
           },
-          "integrity": "sha256-MEff6VJttUmO93J80qXIpIwN4Fa+z80xc14D83v1YQw="
+          "integrity": "sha256-fcHrcsnLO/E0nLbhwRYTlPSdnS+G6liN6bN6WhgeHRc="
         }
       },
       "transport": "stdio"
     },
     "filesystem": {
-      "integrity": "sha256-UbJ+DK+eGiDMqKq6S4jErosDiLfKVlv5CYUoYUC2174=",
+      "integrity": "sha256-b8Y8f0uLARrGpVCfALR2Fg1JDmOcgQWCrsPgq+IThIw=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-BMihuyTNi975iQTQDsZ6x+JVg99CAiX83jBV0wGMyc/0DcBO55ulCQqEzwx7lbG5U9/97XiPP9n0sK/iUtSsEg==",
+        "integrity": "sha512-mNLj/qhV+P4kj1qP8VzgQ2fjSmWcKDQ3Q+KpZEA+WahCDWHw5zJBRQUNSPZ6Ai2/ZGGUjzNzsFpz958a1+4T9A==",
         "name": "@modelcontextprotocol/server-filesystem",
-        "version": "2.1.0"
+        "version": "2.2.0"
       },
       "serverInfo": {
         "name": "secure-filesystem-server",
-        "version": "2.1.0"
+        "version": "2.2.0"
       },
       "source": {
         "args": [
@@ -730,6 +738,89 @@
         "command": "npx"
       },
       "tools": {
+        "append_file": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Append text to the end of a file, creating the file if it does not exist. The existing content is never changed or replaced. The text is appended exactly as given, with no newline added before or after it, so end it with a newline if the next append should start on a new line. Only works within allowed directories.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "content": {
+                "description": "Text to append, exactly as given. No newline is added: end it with \\n if the next append should start on a new line.",
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "path"
+            ],
+            "type": "object"
+          },
+          "integrity": "sha256-5jWZ8acsxC2hmeVkzYLhYrj5rkNW5I9hPDIuhvyt52Q=",
+          "outputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content"
+            ],
+            "type": "object"
+          },
+          "title": "Append File"
+        },
+        "copy_file": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Copy a file to a new location, without reading its content into the conversation. Copies one regular file, keeping its permissions and modification time; directories are not copied. If the destination exists, the operation will fail: it never overwrites. Both source and destination must be within allowed directories.",
+          "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "destination": {
+                "description": "Where to create the copy; nothing may exist there yet",
+                "type": "string"
+              },
+              "source": {
+                "description": "The file to copy",
+                "type": "string"
+              }
+            },
+            "required": [
+              "destination",
+              "source"
+            ],
+            "type": "object"
+          },
+          "integrity": "sha256-v5nFdbKnvbGcmIXmrxnaiMio7BePsL/7Jy6ptADJrmg=",
+          "outputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content"
+            ],
+            "type": "object"
+          },
+          "title": "Copy File"
+        },
         "create_directory": {
           "annotations": {
             "destructiveHint": false,
@@ -768,13 +859,21 @@
         },
         "directory_tree": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
+          "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty), except at the last level when 'depth' limits the tree: those directories are not read and have no children array. The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+              "depth": {
+                "description": "How many levels to descend: 1 lists only the entries directly in path. Directories at the last level have no children array. Omit for the whole tree.",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
               "excludePatterns": {
                 "default": [],
                 "items": {
@@ -791,7 +890,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-tNTOerMujuByRSuRvP6QVU/wTWZw0VfLB1YGjQEIggU=",
+          "integrity": "sha256-yI21/8HYG3ycZzviTZt2HZrV9epTcnAgTjvSSEizv2Y=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -814,7 +913,7 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
+          "description": "Make line-based edits to a text file. Edits apply in order, each to the result of the ones before it, and each replaces the first match of its oldText with newText. oldText must match the file's text exactly, except that line endings (LF or CRLF) never matter and, when there is no exact match, a run of whole lines matches if each line is equal once leading and trailing whitespace is ignored (newText then takes the file's indentation). Whitespace inside a line must match. If any edit has no match, nothing is written and the error shows the closest lines of the file, numbered, to copy oldText from. Returns a git-style diff showing the changes made. Only works within allowed directories.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -853,7 +952,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-TCaqyGcW5S/F/+8U6UQCnVpSjKLYNGkczAefoMjV/tY=",
+          "integrity": "sha256-lpxpWPyrbg1x8fvUOssHEg85Uog2admsHPGE38tcIFM=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -871,6 +970,8 @@
         },
         "get_file_info": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -887,7 +988,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-YSjBcaXYOlw8FTUZBYJpvKQhdNaHEwsJwrFDRozNCfc=",
+          "integrity": "sha256-JXS7a2S18Lea2SQiaoVKMKmnS8GiK8htf2sshY36d+U=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -905,6 +1006,8 @@
         },
         "list_allowed_directories": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -914,7 +1017,7 @@
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-y54sp/QWLPwOy0snVN7gkK53qViXu3fG/wF7ovMcbjc=",
+          "integrity": "sha256-5aOhv0UH52r9TJg+lCmHGPak+GzI2AAlIfZuQrzolu0=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -932,6 +1035,8 @@
         },
         "list_directory": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -948,7 +1053,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-AHIaRRNZ7dt3cGWhBF8SanWmjSA0/uymKbxAQ3wxzp8=",
+          "integrity": "sha256-QiwdJ+C/GYk3RnzVaAXUTkK7QigjVa58omPVUv/TkPg=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -966,6 +1071,8 @@
         },
         "list_directory_with_sizes": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -991,7 +1098,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-Kr/S8vORE3H/3tBepHGGd1mixuj0ewu3ZoRiv5BrvPo=",
+          "integrity": "sha256-42CPmAGfX1jbn6vGWQxf4SU8PwS/vy0fJc6mv0i+rIY=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1049,6 +1156,8 @@
         },
         "read_file": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -1058,14 +1167,18 @@
             "properties": {
               "head": {
                 "description": "If provided, returns only the first N lines of the file",
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "path": {
                 "type": "string"
               },
               "tail": {
                 "description": "If provided, returns only the last N lines of the file",
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -1073,7 +1186,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-NNy6Js85KintQyPc1j1zNV7B+JWCvvL6vBILQqFj+mU=",
+          "integrity": "sha256-wXaKJ0mSkQDxIk/ZRjabp9p0+NuUvMJ/BGBiWJ2cbGI=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1091,6 +1204,8 @@
         },
         "read_media_file": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -1107,7 +1222,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-DkjUqEZMhTUDZRMO5YREhZ7sp+Me+HoRCjjZkAGpKww=",
+          "integrity": "sha256-grx6G/ovpM4d/e++di2t8VcMXzRg9L9vhlq8oY+af+k=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1186,6 +1301,8 @@
         },
         "read_multiple_files": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -1207,7 +1324,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-FirRwb62+r5GzqKehIUDk8nYuCLhDnb1ZlCF+L7gzks=",
+          "integrity": "sha256-bhqk9Dm37IpGapJSCrPvYVCD6eIOxM9ek/AIHcwJF0E=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1225,6 +1342,8 @@
         },
         "read_text_file": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
@@ -1234,14 +1353,18 @@
             "properties": {
               "head": {
                 "description": "If provided, returns only the first N lines of the file",
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "path": {
                 "type": "string"
               },
               "tail": {
                 "description": "If provided, returns only the last N lines of the file",
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -1249,7 +1372,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-kX5mA3KJ9lsmAlkv82Wmu81c5dPwg0xtzXO/p7qm1wU=",
+          "integrity": "sha256-BBtNa9YLIvsF5DFGwTCjEl752E11p1idNAqkEvtZQxo=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1267,10 +1390,12 @@
         },
         "search_files": {
           "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
+          "description": "Find files and directories by NAME, not by content: this tool never reads or searches inside files. It walks the tree under 'path' and matches a glob pattern against each entry's path relative to 'path' (case-sensitive). Use '*.ext' to match entries directly under 'path', and '**/*.ext' or '**/name' to match at any depth. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -1294,7 +1419,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-AujZK+0uQIBR/0yAMxhk0ZyMjFmSgVVeDluJoWuzfx8=",
+          "integrity": "sha256-FPJK06lBWIyilEYS+GPnDgQgnXyvC7BEflpFX67ct3E=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1354,17 +1479,47 @@
       "transport": "stdio"
     },
     "git": {
-      "integrity": "sha256-TkC+/P6drskf1i26xRrnlSjwuqIudFyxmooGM5TatgI=",
+      "integrity": "sha256-PyBwqRCq0xjtSvFVtWhI1TOS1/aMzmGMLwRaKxRndmk=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-aRbUd9A6W39zyE1Upv1W6y9X0yABdYtIc/pmMX4n4gw=",
+        "integrity": "sha256-fnG4PVynIU3ccegnbSjoG1ttHzNxTt8pYYJtO/9naFk=",
         "name": "mcp-server-git",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
-      "prompts": {},
+      "prompts": {
+        "git_commit_message": {
+          "arguments": [
+            {
+              "description": "The path to the Git repository.",
+              "name": "repo_path",
+              "required": true
+            }
+          ],
+          "description": "Asks the model for a commit message for the staged changes",
+          "integrity": "sha256-zJv5AWrRV5bC1+geUxv6SPn/FJcSkd4DTXAl7vEnWB8=",
+          "title": "Draft a commit message"
+        },
+        "git_summarize_changes": {
+          "arguments": [
+            {
+              "description": "The path to the Git repository.",
+              "name": "repo_path",
+              "required": true
+            },
+            {
+              "description": "Branch or commit to diff against. Defaults to the working tree's staged and unstaged changes",
+              "name": "target",
+              "required": false
+            }
+          ],
+          "description": "Asks the model to summarize the working tree's staged and unstaged changes, or the diff against a branch or commit",
+          "integrity": "sha256-AQVfVDcdhbRU7Qm0rvQUIv0WiJmI1uypZzMKHr14G/c=",
+          "title": "Summarize changes"
+        }
+      },
       "serverInfo": {
         "name": "mcp-git",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
       "source": {
         "args": [
@@ -1567,7 +1722,7 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Shows differences between branches or commits",
+          "description": "Shows differences between branches or commits, or across a revision range (main..feature, main...feature)",
           "inputSchema": {
             "properties": {
               "context_lines": {
@@ -1591,7 +1746,7 @@
             "title": "diffArguments",
             "type": "object"
           },
-          "integrity": "sha256-/Hxc2Lu/kNTqToYz1Y40mjFT8tal+iBvpXvyyqqlbi8="
+          "integrity": "sha256-CZwLyPndW/sEmQuIgbshb5gbDcprdWJtikcUvWHIZfI="
         },
         "git_diff_staged": {
           "annotations": {
@@ -1703,6 +1858,65 @@
           },
           "integrity": "sha256-bAdAWsN6d+4ggzhPfMcQgGmyYk/47xP23hIsNRp1+3w="
         },
+        "git_merge": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Merges a branch into the current branch. Fast-forward only unless fast_forward_only is false; refuses a dirty working tree, and aborts a merge that conflicts, leaving the repository unchanged",
+          "inputSchema": {
+            "properties": {
+              "fast_forward_only": {
+                "default": true,
+                "description": "Only fast-forward, failing if the branches have diverged. False allows a merge commit",
+                "title": "Fast Forward Only",
+                "type": "boolean"
+              },
+              "repo_path": {
+                "title": "Repo Path",
+                "type": "string"
+              },
+              "source_branch": {
+                "description": "Branch, tag or commit to merge into the current branch",
+                "title": "Source Branch",
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo_path",
+              "source_branch"
+            ],
+            "title": "mergeArguments",
+            "type": "object"
+          },
+          "integrity": "sha256-v14Vj+9C95vspsD1rKtuQi/HY+eMfhlab8zyjTpnn/4="
+        },
+        "git_remote": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Lists the repository's remotes with their fetch and push URLs, like `git remote -v`. Credentials embedded in a URL are shown as <redacted>",
+          "inputSchema": {
+            "properties": {
+              "repo_path": {
+                "description": "The path to the Git repository.",
+                "title": "Repo Path",
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo_path"
+            ],
+            "title": "remoteArguments",
+            "type": "object"
+          },
+          "integrity": "sha256-SDnMImTxYGhLqU1ujXLWL0UX7T4k4aAeIAO8sbuqZQM="
+        },
         "git_reset": {
           "annotations": {
             "destructiveHint": true,
@@ -1781,16 +1995,16 @@
       "transport": "stdio"
     },
     "memory": {
-      "integrity": "sha256-Oc2tC7zj3oJCn6JlTCqpY4lBSy1Ka1Q371i5karlkLA=",
+      "integrity": "sha256-tLBt2rrYZc/jWh1osQBcu9RRRInt+wPNK9vy7pyuk3s=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-RbX5cm/OUbvBguVzHhJIqvG15b5K/bLODtQhHeQTkuM6XrijDtCFLl2THgLDg9JnS6pUBomNWq9n5G2bQwxD3A==",
+        "integrity": "sha512-4rhufvmutolbl5O/RflMRenzhYnSh/wij3uMK8H2vuZ2xSGgrA6O2VXwsg/+tSb2UsU1hVDw1XwZ2lcCz8XR2g==",
         "name": "@modelcontextprotocol/server-memory",
-        "version": "2.0.1"
+        "version": "2.1.0"
       },
       "serverInfo": {
         "name": "memory-server",
-        "version": "2.0.1"
+        "version": "2.1.0"
       },
       "source": {
         "args": [
@@ -1803,7 +2017,7 @@
         "add_observations": {
           "annotations": {
             "destructiveHint": false,
-            "idempotentHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": false
           },
@@ -1840,7 +2054,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-eqZVQj6ydanYL6WC8NneoLLD4sb3vLvMv/diCnDAK9Q=",
+          "integrity": "sha256-DWbPEuEtQDEQSkF1v9MxuRjZ7KjfJ02jAGrxoNyvNLo=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1878,7 +2092,7 @@
         "create_entities": {
           "annotations": {
             "destructiveHint": false,
-            "idempotentHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": false
           },
@@ -1920,7 +2134,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-fCk+oP9dX3RsP7BHixa2qmIUBGz6ASPIn1nCsf9npoE=",
+          "integrity": "sha256-BaXzAnKO8aqqcma8KDrHfw3nb+UzMoHZ8z81v7q2Ais=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1971,7 +2185,7 @@
         "create_relations": {
           "annotations": {
             "destructiveHint": false,
-            "idempotentHint": false,
+            "idempotentHint": true,
             "openWorldHint": false,
             "readOnlyHint": false
           },
@@ -2010,7 +2224,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-s+5/j6cUG0ta7wWgD9jSqx3P6jGY7cTIn5/gmdIAht8=",
+          "integrity": "sha256-d739nTQGBnAEp/+ngx6D9Unb1R/Bo6kGgt+wvpLWc8I=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2223,7 +2437,7 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Open specific nodes in the knowledge graph by their names",
+          "description": "Retrieve specific entities by their exact names, with every relation that touches one of them. Use this when you already know the names (from the conversation, or from an earlier search_nodes or read_graph result); it is the cheapest way to read entities you can name. Prefer search_nodes when you only have a keyword or part of a name. Names that do not exist are skipped.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -2233,6 +2447,12 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "observationLimit": {
+                "description": "Return at most this many observations per entity (the first ones, in the order they were added) and add each entity's total as observationCount. Use 0 for names, types and counts only: a cheap overview of a large graph, after which open_nodes reads the entities you need in full. Omit to return every observation.",
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -2240,7 +2460,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-m6taEfQNpr/VVWhdkEnFrF3wX5AoOEg4Q98BMJspmbU=",
+          "integrity": "sha256-fb2HBotEVb+ykLSglDCuYa+BhDowNaQJQx339c/dHK4=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2256,6 +2476,12 @@
                     "name": {
                       "description": "The name of the entity",
                       "type": "string"
+                    },
+                    "observationCount": {
+                      "description": "How many observations the entity holds in total; present only when observationLimit was given",
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "observations": {
                       "description": "An array of observation contents associated with the entity",
@@ -2316,13 +2542,28 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Read the entire knowledge graph",
+          "description": "Read the entire knowledge graph: every entity with its observations, and every relation. The result grows with the graph, so use this only when you need everything; prefer search_nodes to find entities by keyword and open_nodes to read entities whose names you know.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {},
+            "properties": {
+              "entityTypes": {
+                "description": "Return only entities whose entityType is one of these (exact match), and only the relations that touch one of them. Omit to return every entity.",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "observationLimit": {
+                "description": "Return at most this many observations per entity (the first ones, in the order they were added) and add each entity's total as observationCount. Use 0 for names, types and counts only: a cheap overview of a large graph, after which open_nodes reads the entities you need in full. Omit to return every observation.",
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
             "type": "object"
           },
-          "integrity": "sha256-zQ3jEB+YMn3o87iyYMSPY7ibWsYzfhE4pKzMz18mRN0=",
+          "integrity": "sha256-a9iXbgHQ9azz5hV/lfIruEIIz4RYZTaz2uryUAaxCZs=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2338,6 +2579,12 @@
                     "name": {
                       "description": "The name of the entity",
                       "type": "string"
+                    },
+                    "observationCount": {
+                      "description": "How many observations the entity holds in total; present only when observationLimit was given",
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "observations": {
                       "description": "An array of observation contents associated with the entity",
@@ -2398,10 +2645,22 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Search for nodes in the knowledge graph based on a query",
+          "description": "Search the knowledge graph for entities whose name, type or observations contain the query (case-insensitive). Use this when you have a keyword, a topic or part of a name but not the exact entity names. Prefer open_nodes when you already know the exact names, and use read_graph only when you need the whole graph. Returns the matching entities and every relation that touches one of them.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+              "limit": {
+                "description": "Return at most this many matching entities (the first matches, in stored order), with the relations that touch them. Omit to return every match.",
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "observationLimit": {
+                "description": "Return at most this many observations per entity (the first ones, in the order they were added) and add each entity's total as observationCount. Use 0 for names, types and counts only: a cheap overview of a large graph, after which open_nodes reads the entities you need in full. Omit to return every observation.",
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
               "query": {
                 "description": "The search query to match against entity names, types, and observation content",
                 "maxLength": 2048,
@@ -2413,7 +2672,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-5imJuy+stwxVd05e1+n/lY1/dXzgv3FnGBsqQpzFw3Q=",
+          "integrity": "sha256-qQ4BpqhdDC3/2E9pzQacJSPQV1tix0F9M2ktvu/jcms=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2429,6 +2688,12 @@
                     "name": {
                       "description": "The name of the entity",
                       "type": "string"
+                    },
+                    "observationCount": {
+                      "description": "How many observations the entity holds in total; present only when observationLimit was given",
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "observations": {
                       "description": "An array of observation contents associated with the entity",
@@ -3435,16 +3700,16 @@
       "transport": "stdio"
     },
     "sequential-thinking": {
-      "integrity": "sha256-XdXBZ5OIESEwm1CiSXtywSoIEe0NbYe+ZYS91gd9dD4=",
+      "integrity": "sha256-IuMj9Wf//QHGIVRzS4VnGvO+jqh+us2NfpHHJ8xIqTE=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-LAljkLByTHuOOPoQHAGNX5EiUJAvYuuTG7yEvdK5pRg7s7oxchNh8LwSkcuW3Y8bvQk4uZgjbjH3x7rNKpJ3Iw==",
+        "integrity": "sha512-yvj9eotCoXX7BLmyOKdajnCYB5vgeCS3YwtEU0wCIcVgl+xvCdBtjkd0CTA45Ljh2+Iv1538n28VAnrstps1Tg==",
         "name": "@modelcontextprotocol/server-sequential-thinking",
-        "version": "2.0.0"
+        "version": "2.1.1"
       },
       "serverInfo": {
         "name": "sequential-thinking-server",
-        "version": "2.0.0"
+        "version": "2.1.1"
       },
       "source": {
         "args": [
@@ -3461,7 +3726,7 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "A detailed tool for dynamic and reflective problem-solving through thoughts.\nThis tool helps analyze problems through a flexible thinking process that can adapt and evolve.\nEach thought can build on, question, or revise previous insights as understanding deepens.\n\nWhen to use this tool:\n- Breaking down complex problems into steps\n- Planning and design with room for revision\n- Analysis that might need course correction\n- Problems where the full scope might not be clear initially\n- Problems that require a multi-step solution\n- Tasks that need to maintain context over multiple steps\n- Situations where irrelevant information needs to be filtered out\n\nKey features:\n- You can adjust total_thoughts up or down as you progress\n- You can question or revise previous thoughts\n- You can add more thoughts even after reaching what seemed like the end\n- You can express uncertainty and explore alternative approaches\n- Not every thought needs to build linearly - you can branch or backtrack\n- Generates a solution hypothesis\n- Verifies the hypothesis based on the Chain of Thought steps\n- Repeats the process until satisfied\n- Provides a correct answer\n\nParameters explained:\n- thought: Your current thinking step, which can include:\n  * Regular analytical steps\n  * Revisions of previous thoughts\n  * Questions about previous decisions\n  * Realizations about needing more analysis\n  * Changes in approach\n  * Hypothesis generation\n  * Hypothesis verification\n- nextThoughtNeeded: True if you need more thinking, even if at what seemed like the end\n- thoughtNumber: Current number in sequence (can go beyond initial total if needed)\n- totalThoughts: Current estimate of thoughts needed (can be adjusted up/down)\n- isRevision: A boolean indicating if this thought revises previous thinking\n- revisesThought: If is_revision is true, which thought number is being reconsidered\n- branchFromThought: If branching, which thought number is the branching point\n- branchId: Identifier for the current branch (if any)\n- needsMoreThoughts: If reaching end but realizing more thoughts needed\n\nYou should:\n1. Start with an initial estimate of needed thoughts, but be ready to adjust\n2. Feel free to question or revise previous thoughts\n3. Don't hesitate to add more thoughts if needed, even at the \"end\"\n4. Express uncertainty when present\n5. Mark thoughts that revise previous thinking or branch into new paths\n6. Ignore information that is irrelevant to the current step\n7. Generate a solution hypothesis when appropriate\n8. Verify the hypothesis based on the Chain of Thought steps\n9. Repeat the process until satisfied with the solution\n10. Provide a single, ideally correct answer as the final output\n11. Only set nextThoughtNeeded to false when truly done and a satisfactory answer is reached",
+          "description": "A detailed tool for dynamic and reflective problem-solving through thoughts.\nEach thought can build on, question, or revise previous insights as understanding deepens.\n\nWhen to use this tool:\n- Breaking down complex problems into steps\n- Planning and design with room for revision\n- Analysis that might need course correction\n- Problems where the full scope might not be clear initially\n- Tasks that need to maintain context over multiple steps\n- Situations where irrelevant information needs to be filtered out\n\nYou should:\n1. Estimate totalThoughts up front and adjust it up or down as you go; thoughtNumber may exceed it\n2. Question or revise earlier thoughts (isRevision with revisesThought), or branch (branchFromThought with branchId)\n3. Express uncertainty, and ignore information irrelevant to the current step\n4. Generate a solution hypothesis, verify it against the earlier steps, and repeat until satisfied\n5. Set nextThoughtNeeded to false only when truly done and a satisfactory answer is reached",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -3527,7 +3792,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-U+Dp5UPq0HLNpMULK6iqx5BJogyiIRARTc43Qt4IdAc=",
+          "integrity": "sha256-yHyBVCyMQ2C0ZB5dYrt+Am1pW4kjqerMZKGce8nVmhw=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -3566,17 +3831,17 @@
       "transport": "stdio"
     },
     "time": {
-      "integrity": "sha256-UMrhRuYJmgiTEY0VNdAKZcilgL9s6Ea0AowpdwVDBIw=",
+      "integrity": "sha256-AkWVkFmoa9EqqTiwOvENa5fIhFK0SddJWogV5O5jEr8=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-vFqcQHyVRviqN3Ix6YKhMKPRL0M/cmQHORjVmW25oBU=",
+        "integrity": "sha256-VqbwMQcISQIGX9OCt9zMhFmY3yYT64WPM8mYgXEsRhY=",
         "name": "mcp-server-time",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
       "prompts": {},
       "serverInfo": {
         "name": "mcp-time",
-        "version": "2026.10.28"
+        "version": "2026.11.4"
       },
       "source": {
         "args": [
@@ -3596,12 +3861,14 @@
           "inputSchema": {
             "properties": {
               "source_timezone": {
-                "description": "Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use 'Etc/UTC' as local timezone if no source timezone provided by the user.",
+                "default": "Etc/UTC",
+                "description": "Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Optional: defaults to the server's local timezone, 'Etc/UTC', when omitted.",
                 "title": "Source Timezone",
                 "type": "string"
               },
               "target_timezone": {
-                "description": "Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Use 'Etc/UTC' as local timezone if no target timezone provided by the user.",
+                "default": "Etc/UTC",
+                "description": "Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Optional: defaults to the server's local timezone, 'Etc/UTC', when omitted.",
                 "title": "Target Timezone",
                 "type": "string"
               },
@@ -3612,16 +3879,41 @@
               }
             },
             "required": [
-              "source_timezone",
-              "target_timezone",
               "time"
             ],
             "title": "convert_timeArguments",
             "type": "object"
           },
-          "integrity": "sha256-MP8LW3S7u0ut0OGbzNlfz/wrsHR6IhGf/3+rjdpKbwo=",
+          "integrity": "sha256-585+trLyIAIy1QUyFrXOYDQEbtZOiyiOlZcC5C9Y1nw=",
           "outputSchema": {
             "$defs": {
+              "LaterOccurrence": {
+                "description": "The second reading of an ambiguous source time (#5196).",
+                "properties": {
+                  "note": {
+                    "title": "Note",
+                    "type": "string"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/TimeResult"
+                  },
+                  "target": {
+                    "$ref": "#/$defs/TimeResult"
+                  },
+                  "time_difference": {
+                    "title": "Time Difference",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "note",
+                  "source",
+                  "target",
+                  "time_difference"
+                ],
+                "title": "LaterOccurrence",
+                "type": "object"
+              },
               "TimeResult": {
                 "properties": {
                   "datetime": {
@@ -3652,6 +3944,18 @@
               }
             },
             "properties": {
+              "later_occurrence": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LaterOccurrence"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Set only when the source time occurs twice on this date because a clock change repeats it (a DST fall-back): the same conversion at its second occurrence. source and target are the first."
+              },
               "source": {
                 "$ref": "#/$defs/TimeResult"
               },
@@ -3683,18 +3987,94 @@
           "inputSchema": {
             "properties": {
               "timezone": {
-                "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use 'Etc/UTC' as local timezone if no timezone provided by the user.",
+                "default": "Etc/UTC",
+                "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Optional: defaults to the server's local timezone, 'Etc/UTC', when omitted.",
+                "title": "Timezone",
+                "type": "string"
+              }
+            },
+            "title": "get_current_timeArguments",
+            "type": "object"
+          },
+          "integrity": "sha256-3QNR2sNw6W3cUM5U09Z6NhO9e2hbiN1ASuAR++7lNko=",
+          "outputSchema": {
+            "properties": {
+              "datetime": {
+                "title": "Datetime",
+                "type": "string"
+              },
+              "day_of_week": {
+                "title": "Day Of Week",
+                "type": "string"
+              },
+              "is_dst": {
+                "title": "Is Dst",
+                "type": "boolean"
+              },
+              "timezone": {
                 "title": "Timezone",
                 "type": "string"
               }
             },
             "required": [
+              "datetime",
+              "day_of_week",
+              "is_dst",
               "timezone"
             ],
-            "title": "get_current_timeArguments",
+            "title": "TimeResult",
+            "type": "object"
+          }
+        },
+        "get_time_ago": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Get the time a given number of days, hours, minutes and seconds ago in a specific timezone",
+          "inputSchema": {
+            "properties": {
+              "days_ago": {
+                "default": 0,
+                "description": "Whole days before now",
+                "minimum": 0,
+                "title": "Days Ago",
+                "type": "integer"
+              },
+              "hours_ago": {
+                "default": 0,
+                "description": "Whole hours before now",
+                "minimum": 0,
+                "title": "Hours Ago",
+                "type": "integer"
+              },
+              "minutes_ago": {
+                "default": 0,
+                "description": "Whole minutes before now",
+                "minimum": 0,
+                "title": "Minutes Ago",
+                "type": "integer"
+              },
+              "seconds_ago": {
+                "default": 0,
+                "description": "Whole seconds before now",
+                "minimum": 0,
+                "title": "Seconds Ago",
+                "type": "integer"
+              },
+              "timezone": {
+                "default": "Etc/UTC",
+                "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Optional: defaults to the server's local timezone, 'Etc/UTC', when omitted.",
+                "title": "Timezone",
+                "type": "string"
+              }
+            },
+            "title": "get_time_agoArguments",
             "type": "object"
           },
-          "integrity": "sha256-VhLAJNFm71/Uk7PnpKRuI8fRYp/DXVj3+5f+jRt2Uqk=",
+          "integrity": "sha256-uuadH88v+vOdnkcmWcqaP133MIM8ikfW04Mmt5Qcflg=",
           "outputSchema": {
             "properties": {
               "datetime": {
