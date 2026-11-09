@@ -6,14 +6,14 @@
       "integrity": "sha256-FWwKCALiSFK52GSyhwpJ3eeP0eOPhDJlXIfzRE40syQ=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-rUD1IdPVihgV8iifD7EvmtdH5X53zwvAUJ1a/ltaIla80m7Nga+lgx5Mk2ckLMF7r5WjDkFfd7qEQ54xbvEwiA==",
+        "integrity": "sha512-V/ve0WbDojzajy7ZwHVi3MRxujeyqvzX1uGO9QZSXuD+WUe2swll1OB3Mv+kI9ZU6fMFkbUM9MUgBA+Hc1j2tA==",
         "name": "@upstash/context7-mcp",
-        "version": "4.5.1"
+        "version": "4.6.0"
       },
       "prompts": {},
       "serverInfo": {
         "name": "Context7",
-        "version": "4.5.1"
+        "version": "4.6.0"
       },
       "source": {
         "args": [
