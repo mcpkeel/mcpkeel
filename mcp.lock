@@ -2751,16 +2751,16 @@
       "transport": "stdio"
     },
     "playwright": {
-      "integrity": "sha256-Dqwgb3fZuBq+KnBjxhFds3AF3icPOUNtD+G9b0F9rhg=",
+      "integrity": "sha256-F32+MGAh0+QK9sSneZcNSR2jZzHPwk0AE4m4pZjXNzs=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-weqLrA7/D8MJzNV9/t3Hnjp100tS2sxFXKeb2gH6Nhktqmdfvx5qRA9AZ5Mhjnre1jY0wltsrRK5VZS5NBgcvw==",
+        "integrity": "sha512-bSfECMbLXhJdWkGhLzNMxTZuazG+9IDJ679gflji3yyD94e7ARnGdqmJmG6lTPB+gYX+OiFLmX5myBl62+wZEw==",
         "name": "@playwright/mcp",
-        "version": "0.0.84"
+        "version": "0.0.85"
       },
       "serverInfo": {
         "name": "Playwright",
-        "version": "1.65.0-alpha-2026-10-30"
+        "version": "1.66.0-alpha-2026-11-09"
       },
       "source": {
         "args": [
@@ -3579,7 +3579,7 @@
             "readOnlyHint": true,
             "title": "Take a screenshot"
           },
-          "description": "Take a screenshot of the current page. You can't perform actions based on the screenshot, use browser_snapshot for actions.",
+          "description": "Take a screenshot of the current page. Use browser_snapshot for actions by default. With the vision capability enabled, use screenshot coordinates with the coordinate-based mouse tools for elements not exposed in the accessibility snapshot.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -3624,7 +3624,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-GqNoOHKwbHI620uOiSeQFeiYuALueGvCxDDn/atDoSs="
+          "integrity": "sha256-VvaNN+m8OW+HPSZe5mrD/BH9qHcrxkW/gBVKOuxVGPs="
         },
         "browser_type": {
           "annotations": {

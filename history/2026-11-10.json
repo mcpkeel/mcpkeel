@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-10",
+  "changes": 3,
+  "bySeverity": {
+    "critical": 0,
+    "high": 2,
+    "medium": 0,
+    "low": 1
+  },
+  "servers": [
+    "playwright"
+  ],
+  "findings": [
+    {
+      "server": "playwright",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "playwright",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "playwright",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}

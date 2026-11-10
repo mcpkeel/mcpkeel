@@ -1,9 +1,9 @@
 {
-  "lastChecked": "2026-11-09",
+  "lastChecked": "2026-11-10",
   "servers": [
     {
       "name": "context7",
-      "status": "drift",
+      "status": "ok",
       "version": "4.6.0"
     },
     {
@@ -33,8 +33,8 @@
     },
     {
       "name": "playwright",
-      "status": "ok",
-      "version": "1.65.0-alpha-2026-10-30"
+      "status": "drift",
+      "version": "1.66.0-alpha-2026-11-09"
     },
     {
       "name": "sequential-thinking",
