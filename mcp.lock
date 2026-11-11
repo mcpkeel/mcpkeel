@@ -90,12 +90,12 @@
     },
     "everything": {
       "instructions": "# Everything Server – Server Instructions\n\nAudience: These instructions are written for an LLM or autonomous agent integrating with the Everything MCP Server.\nFollow them to use, extend, and troubleshoot the server safely and effectively.\n\n## Protocol Versions\n\nThe server serves two protocol eras. A client on protocol version 2026-07-28 connects with `server/discover` and sends its capabilities with each request; a 2025-era client connects with `initialize`. Some tools exist on one era only, so trust your `tools/list`:\n\n- 2026-07-28 only: `simulate-research-query`, `trigger-sampling-request-async` and `trigger-elicitation-request-async`, which run as tasks on the `io.modelcontextprotocol/tasks` extension and need a client that declares it; `trigger-sampling-request-async` also needs `sampling`, and `trigger-elicitation-request-async` form-mode `elicitation`. A call without them fails with `-32021`\n- 2025-era only (deprecated): `toggle-simulated-logging` and `toggle-subscriber-updates`\n\n## Cross-Feature Relationships\n\n- If `get-roots-list` is in your tool list, use it to see client workspace roots before file operations\n- `gzip-file-as-resource` creates resources you can read later: for the current session on a 2025-era connection, or for ten minutes at the returned URI on 2026-07-28\n- Use `trigger-log-messages` to see which log levels reach you; on 2026-07-28 the level is set per request in `_meta`\n- Use `trigger-resource-update` and `trigger-list-changed` to see change notifications; on 2026-07-28 they arrive only on a `subscriptions/listen` stream that asked for them\n\n## Constraints & Limitations\n\n- `gzip-file-as-resource`: Max fetch size controlled by `GZIP_MAX_FETCH_SIZE` (default 10MB), timeout by `GZIP_MAX_FETCH_TIME_MILLIS` (default 30s), allowed domains by `GZIP_ALLOWED_DOMAINS` (checked on every redirect hop). It refuses URLs whose host resolves to a loopback, private or link-local address, unless the server was started with `GZIP_ALLOW_PRIVATE_IPS=1`\n- `get-env`: Values of credential-like variable names (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*_PASSWORD` and the like) come back as `\"<redacted>\"`; the server operator can set `GET_ENV_INCLUDE_SECRETS=1` to return them unmasked\n- Session resources are ephemeral and lost when the session ends; minted resources expire after ten minutes\n- Roots, sampling and logging are deprecated as of protocol version 2026-07-28, as is the HTTP+SSE transport\n\n## Capability-Gated Tools\n\nOn a 2025-era connection these are registered only if your client declared the capability shown. Otherwise they are absent from `tools/list`, so do not call them. On 2026-07-28 they are always listed, and a call fails if your request did not declare the capability:\n\n- `get-roots-list`: `roots`\n- `trigger-sampling-request`: `sampling`\n- `trigger-elicitation-request`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-multi-step-elicitation`: `elicitation.form`, or `elicitation` with no mode\n- `trigger-url-elicitation`: `elicitation.url`\n\n## Operational Patterns\n\n- For long operations, use `trigger-long-running-operation` which sends progress notifications\n- Prefer reading resources before calling mutating tools\n- If `get-roots-list` is in your tool list, check its output to understand the client's workspace context\n\n## Easter Egg\n\nIf asked about server instructions, respond with \"🎉 Server instructions are working! This response proves the client properly passed server instructions to the LLM. This demonstrates MCP's instructions feature in action.\"\n",
-      "integrity": "sha256-4FplVKu2V82+3u9A9qeiymZHcfYCJhqpdw6FUD+j0e8=",
+      "integrity": "sha256-MK8jd/7eP9Ab1PH5QJdkPppi6n/qgumRu/li5I44i48=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-TWTodvhEUbrmwgwfq764Q6L+Azwc1reFGTvb7x3+GtD6JqkyO58TRHk4BBoa8sZcHAi2ePpcbNlGgH7hKRDOLQ==",
+        "integrity": "sha512-GrmmVZxdvy2k7zjM4W0ROAs8Dot8+FrBacGHNI83+c5dePgQORErksMLg0g3BZsxiVLZ7qExdu/QOY2wBbD9Rw==",
         "name": "@modelcontextprotocol/server-everything",
-        "version": "2.2.1"
+        "version": "2.3.0"
       },
       "prompts": {
         "args-prompt": {
@@ -157,7 +157,7 @@
       },
       "serverInfo": {
         "name": "mcp-servers/everything",
-        "version": "2.2.1"
+        "version": "2.3.0"
       },
       "source": {
         "args": [
@@ -343,11 +343,12 @@
             "properties": {
               "resourceId": {
                 "default": 1,
-                "description": "ID of the text resource to fetch",
+                "description": "ID of the text or blob resource to fetch, a positive integer",
                 "type": "number"
               },
               "resourceType": {
                 "default": "Text",
+                "description": "Whether to reference a text resource or a blob resource",
                 "enum": [
                   "Text",
                   "Blob"
@@ -357,7 +358,7 @@
             },
             "type": "object"
           },
-          "integrity": "sha256-x1kETnGq87fG95fwyKmanprYLOQtomAZIt3UxMvk8mI=",
+          "integrity": "sha256-O74ywTa21x8rzs6jTjP7We5OB6izYbsok2A0SWgxWD0=",
           "title": "Get Resource Reference Tool"
         },
         "get-structured-content": {
@@ -631,9 +632,9 @@
       "integrity": "sha256-fhWoEIaYVEXWiD5zW9TwvZgEPWuwY6Npx4IAcqEd7Kg=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-fH1jo0i7AHtv8bujBDLblRSbAD0QVAvRNw1t8H4Xb8A=",
+        "integrity": "sha256-2sFRMASF5/OafOxTHi96CDsNpWS3gKFwfTBUZPALnY0=",
         "name": "mcp-server-fetch",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "prompts": {
         "fetch": {
@@ -650,7 +651,7 @@
       },
       "serverInfo": {
         "name": "mcp-fetch",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "source": {
         "args": [
@@ -718,16 +719,16 @@
       "transport": "stdio"
     },
     "filesystem": {
-      "integrity": "sha256-b8Y8f0uLARrGpVCfALR2Fg1JDmOcgQWCrsPgq+IThIw=",
+      "integrity": "sha256-MreS5F73ibf8+2bc7t7Cz8dbS0R6QOjYvKACIukycUA=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-mNLj/qhV+P4kj1qP8VzgQ2fjSmWcKDQ3Q+KpZEA+WahCDWHw5zJBRQUNSPZ6Ai2/ZGGUjzNzsFpz958a1+4T9A==",
+        "integrity": "sha512-dnwDFqYi2Q3VbFDnVOUme4+81CzwHBj3OKeYEgZ6UkBp7rWSm5OKiidemgIF0kkt5AyAi6mHsqx0cfTZBP1DJQ==",
         "name": "@modelcontextprotocol/server-filesystem",
-        "version": "2.2.0"
+        "version": "2.3.0"
       },
       "serverInfo": {
         "name": "secure-filesystem-server",
-        "version": "2.2.0"
+        "version": "2.3.0"
       },
       "source": {
         "args": [
@@ -754,6 +755,7 @@
                 "type": "string"
               },
               "path": {
+                "description": "The file to append to; it is created if it does not exist. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -763,7 +765,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-5jWZ8acsxC2hmeVkzYLhYrj5rkNW5I9hPDIuhvyt52Q=",
+          "integrity": "sha256-4K+c2uKraRbqFEsXmKFCZvJttvrEpBSdVGJjOJgk8rQ=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -833,6 +835,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "path": {
+                "description": "The directory to create, with any missing parents; an existing directory is left as is. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -841,7 +844,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-6uvajmqpFar3kNHB35STyyJ0KCPtoysFy38HdASDG70=",
+          "integrity": "sha256-SgXrkaFLXYEWc1KJ27Ko/CE7yRZffm6yIx1ThZMF3b8=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -876,12 +879,14 @@
               },
               "excludePatterns": {
                 "default": [],
+                "description": "Patterns for entries to leave out, with their contents, matched against each entry's path relative to path. A pattern with no '*' matches that name at any depth ('node_modules' leaves out every node_modules directory); a pattern with '*' is a glob matched as written, and one ending in '/**' also leaves out the directory it names.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "path": {
+                "description": "The directory at the root of the tree. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -890,7 +895,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-yI21/8HYG3ycZzviTZt2HZrV9epTcnAgTjvSSEizv2Y=",
+          "integrity": "sha256-KHrbPem4QJw7Jnnw0OhUMWgl9OKrTdJJRzAlu/DBOOE=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -923,6 +928,7 @@
                 "type": "boolean"
               },
               "edits": {
+                "description": "The replacements to make, applied in order, each to the result of the ones before it. If any one has no match, none is written.",
                 "items": {
                   "properties": {
                     "newText": {
@@ -943,6 +949,7 @@
                 "type": "array"
               },
               "path": {
+                "description": "The text file to edit. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -952,7 +959,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-lpxpWPyrbg1x8fvUOssHEg85Uog2admsHPGE38tcIFM=",
+          "integrity": "sha256-fk0XL4mycVuyxHiDX9EubbBlu3yo+l/KrmWVp70RBlE=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -980,6 +987,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "path": {
+                "description": "The file or directory to describe. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -988,7 +996,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-JXS7a2S18Lea2SQiaoVKMKmnS8GiK8htf2sshY36d+U=",
+          "integrity": "sha256-WcswJBQRWT0pp70bsZ7IlgGFeX5SgSZyB6w7YRRoIEI=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1040,11 +1048,12 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+          "description": "List the files and directories directly inside a path, each marked [FILE] or [DIR]. Use it to see what a directory contains; when you also need each entry's size or want entries sorted by size, use list_directory_with_sizes instead, and for a recursive view use directory_tree. Returns one line per entry. Only works within allowed directories.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "path": {
+                "description": "The directory to list. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -1053,7 +1062,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-QiwdJ+C/GYk3RnzVaAXUTkK7QigjVa58omPVUv/TkPg=",
+          "integrity": "sha256-L4FnQFl4rtw3LytD7N9fG81xe0FSuW7WZbhuFtGmvLg=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1076,11 +1085,12 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+          "description": "List the files and directories directly inside a path with each file's size, marked [FILE] or [DIR], sorted by name or by size, largest first (sortBy). Use it when sizes matter, such as finding the largest files; for names only, use list_directory, which returns less text. Returns one line per entry, followed by the totals. Only works within allowed directories.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "path": {
+                "description": "The directory to list. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               },
               "sortBy": {
@@ -1098,7 +1108,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-42CPmAGfX1jbn6vGWQxf4SU8PwS/vy0fJc6mv0i+rIY=",
+          "integrity": "sha256-pJuW4mxMiJb4BDUbhypvPRu8A825G/EGrzuE7bxAxvE=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1126,9 +1136,11 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "destination": {
+                "description": "Its new path, including the name; nothing may exist there yet. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               },
               "source": {
+                "description": "The file or directory to move or rename. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -1138,7 +1150,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-sCACn36LuOwtHxWylzMC/vrVRBUW+uzMQ9S6cEPHtJE=",
+          "integrity": "sha256-zfJW7sNkOv6tvWVIAGriNTtS+TKcZZRGfTKxqUlhXYg=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1172,6 +1184,7 @@
                 "type": "integer"
               },
               "path": {
+                "description": "The file to read as text. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               },
               "tail": {
@@ -1186,7 +1199,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-wXaKJ0mSkQDxIk/ZRjabp9p0+NuUvMJ/BGBiWJ2cbGI=",
+          "integrity": "sha256-IGo8i6oGO1XHPawimmW7+KWaxn8OamgSIl/r/vdywqQ=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1214,6 +1227,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "path": {
+                "description": "The image, audio or other file to read as base64. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -1222,7 +1236,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-grx6G/ovpM4d/e++di2t8VcMXzRg9L9vhlq8oY+af+k=",
+          "integrity": "sha256-FrJNQKPpqFTKZdSskKlYZaC/iOcofkB/l1MaF5PHGvo=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1358,6 +1372,7 @@
                 "type": "integer"
               },
               "path": {
+                "description": "The file to read as text. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               },
               "tail": {
@@ -1372,7 +1387,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-BBtNa9YLIvsF5DFGwTCjEl752E11p1idNAqkEvtZQxo=",
+          "integrity": "sha256-SiQLSmYbE9ewrw08pJoCRgPawiBspXNCIFcC2nYFhp0=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1401,15 +1416,18 @@
             "properties": {
               "excludePatterns": {
                 "default": [],
+                "description": "Patterns for entries to leave out, with their contents, matched against each entry's path relative to path. A pattern with no '*' matches that name at any depth ('node_modules' leaves out every node_modules directory); a pattern with '*' is a glob matched as written, and one ending in '/**' also leaves out the directory it names.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "path": {
+                "description": "The directory to search under. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               },
               "pattern": {
+                "description": "Glob matched against each entry's path relative to path, never its content: '*.ts' matches directly under path, '**/*.ts' at any depth.",
                 "type": "string"
               }
             },
@@ -1419,7 +1437,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-FPJK06lBWIyilEYS+GPnDgQgnXyvC7BEflpFX67ct3E=",
+          "integrity": "sha256-hcbGRIuDQuWwAz3xDZ+5AHfqw3Yc6Y3cc7bnkvbjGyc=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1447,9 +1465,11 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "content": {
+                "description": "The complete text the file will contain, replacing any it had",
                 "type": "string"
               },
               "path": {
+                "description": "The file to create, or to overwrite if it exists; its parent directory must exist. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories.",
                 "type": "string"
               }
             },
@@ -1459,7 +1479,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-9F2mnY2S5CxI78bng1ReMpADt7gYC+hbr+MmQbUYbr4=",
+          "integrity": "sha256-+bmMx4Qz/9QOqB8YL6LGBy/E+jiPLvsv2dpuP6DMOY8=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -1479,12 +1499,12 @@
       "transport": "stdio"
     },
     "git": {
-      "integrity": "sha256-PyBwqRCq0xjtSvFVtWhI1TOS1/aMzmGMLwRaKxRndmk=",
+      "integrity": "sha256-EtR3yUWbzSDCPCykqNx0VvOUKH3jZCIGkITzcMIMtmM=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-fnG4PVynIU3ccegnbSjoG1ttHzNxTt8pYYJtO/9naFk=",
+        "integrity": "sha256-uYzXaVCjiorzpt/ImC/A2PdagV3v5f1kHArx7tbDB+s=",
         "name": "mcp-server-git",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "prompts": {
         "git_commit_message": {
@@ -1519,7 +1539,7 @@
       },
       "serverInfo": {
         "name": "mcp-git",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "source": {
         "args": [
@@ -1829,6 +1849,8 @@
               },
               "max_count": {
                 "default": 10,
+                "description": "Maximum number of commits to show. Must be at least 1.",
+                "minimum": 1,
                 "title": "Max Count",
                 "type": "integer"
               },
@@ -1856,7 +1878,7 @@
             "title": "logArguments",
             "type": "object"
           },
-          "integrity": "sha256-bAdAWsN6d+4ggzhPfMcQgGmyYk/47xP23hIsNRp1+3w="
+          "integrity": "sha256-pjSeMFufKB4WRxK9qlDHu7F9rRCwkmu4/hHnTpNjxWY="
         },
         "git_merge": {
           "annotations": {
@@ -1995,16 +2017,16 @@
       "transport": "stdio"
     },
     "memory": {
-      "integrity": "sha256-tLBt2rrYZc/jWh1osQBcu9RRRInt+wPNK9vy7pyuk3s=",
+      "integrity": "sha256-lKQH7Oa0EDWFMHFDq+uoE7w8rHD0mrtXpot7H9BQTbU=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-4rhufvmutolbl5O/RflMRenzhYnSh/wij3uMK8H2vuZ2xSGgrA6O2VXwsg/+tSb2UsU1hVDw1XwZ2lcCz8XR2g==",
+        "integrity": "sha512-MbjK6Pi+uGU3EwGk9HyCp/1zKwnuB/QMQ/wQOlswaLgHzIeeCuyVdWUTWg0hTGBk+n+3l5la5a4egbt8YuoVAg==",
         "name": "@modelcontextprotocol/server-memory",
-        "version": "2.1.0"
+        "version": "2.1.1"
       },
       "serverInfo": {
         "name": "memory-server",
-        "version": "2.1.0"
+        "version": "2.1.1"
       },
       "source": {
         "args": [
@@ -2026,6 +2048,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "observations": {
+                "description": "The observations to add, grouped by entity. Each entity must already exist; an observation it already has is not added again",
                 "items": {
                   "properties": {
                     "contents": {
@@ -2054,7 +2077,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-DWbPEuEtQDEQSkF1v9MxuRjZ7KjfJ02jAGrxoNyvNLo=",
+          "integrity": "sha256-O3Vg9idw/QfIyupidiZ3V3EKtYHuelhp+Iy2P0CG/6g=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2101,6 +2124,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "entities": {
+                "description": "The entities to create, each with a name unique in the graph",
                 "items": {
                   "properties": {
                     "entityType": {
@@ -2134,7 +2158,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-BaXzAnKO8aqqcma8KDrHfw3nb+UzMoHZ8z81v7q2Ais=",
+          "integrity": "sha256-KZDP/j6yjivceoDFl3vEZmT18h+vc0xkGPa1eF2dIaU=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2194,6 +2218,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "relations": {
+                "description": "The relations to create. Both ends must name existing entities; a relation already in the graph is not added again",
                 "items": {
                   "properties": {
                     "from": {
@@ -2224,7 +2249,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-d739nTQGBnAEp/+ngx6D9Unb1R/Bo6kGgt+wvpLWc8I=",
+          "integrity": "sha256-yuYXBXqn2Td12PV8eozjJc6qAssTqpxor85N3NmcMCY=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2270,7 +2295,7 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "Delete multiple entities and their associated relations from the knowledge graph",
+          "description": "Delete whole entities from the knowledge graph, together with every relation that points to or from them and all their observations. Use it only to remove an entity entirely; to remove a link between two entities and keep both, use delete_relations, and to remove facts from an entity, use delete_observations. Cannot be undone.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -2287,7 +2312,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-IzFAgBm4Irlbg1UT+gLsL8Bwp4UXbNSISGxxQFJyRbQ=",
+          "integrity": "sha256-vV4hkFnNgGxpebSGcY7TwcrY+LpXF4rlrQct1te+rjE=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2319,6 +2344,7 @@
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "deletions": {
+                "description": "The observations to delete, grouped by entity, each matched by its exact text",
                 "items": {
                   "properties": {
                     "entityName": {
@@ -2347,7 +2373,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-pbiEn8TjiwcFNa4VgF5GTzjBcb5k1EcfQEZ6CwODmnA=",
+          "integrity": "sha256-AF/m3zi0nnHGvJc8BrsDGJXAFFjBCPEUbNiSw6ZbwZ4=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -2374,7 +2400,7 @@
             "openWorldHint": false,
             "readOnlyHint": false
           },
-          "description": "Delete multiple relations from the knowledge graph",
+          "description": "Delete specific relations (from, to, relationType) from the knowledge graph and keep the entities they connect. Each relation must match an existing one exactly on all three fields; if unsure, call open_nodes (or search_nodes) first to read the stored relationType. Use it to remove a link between two entities; to remove an entity itself, use delete_entities. Cannot be undone.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -2410,7 +2436,7 @@
             ],
             "type": "object"
           },
-          "integrity": "sha256-dbCfGUAxaG48sQUWRKn0O7fxFhagRFqahNRVCVttJhc=",
+          "integrity": "sha256-YOcoXIpaHZKiHacPSL1mqXUrYBFn9b/oclDMCVH/LVQ=",
           "outputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
@@ -3834,14 +3860,14 @@
       "integrity": "sha256-AkWVkFmoa9EqqTiwOvENa5fIhFK0SddJWogV5O5jEr8=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-VqbwMQcISQIGX9OCt9zMhFmY3yYT64WPM8mYgXEsRhY=",
+        "integrity": "sha256-FyX7BoWd211GDU6oIRU/7b2EckHxovjb3+4IOHmxzaQ=",
         "name": "mcp-server-time",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "prompts": {},
       "serverInfo": {
         "name": "mcp-time",
-        "version": "2026.11.4"
+        "version": "2026.11.11"
       },
       "source": {
         "args": [
