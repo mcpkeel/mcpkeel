@@ -85,6 +85,7 @@ test("plugin: a call to a changed server asks first by default, and can be denie
   assert.equal(deny.permissionDecision, "deny");
   // A deny reason goes to the model, so it names codes, not the server's text or tool names.
   assert.match(deny.permissionDecisionReason, /^Blocked by mcpkeel: MCP server github no longer matches mcp\.lock \(critical; MK105, MK112\)/);
+  assert.match(deny.permissionDecisionReason, /suggest \/mcpkeel:review\.$/);
   assert.doesNotMatch(deny.permissionDecisionReason, /create_issue|id_rsa/);
 
   const warn = await callTool(p, { CLAUDE_PLUGIN_OPTION_ON_DRIFT: "warn" });
@@ -162,6 +163,10 @@ test("plugin in Codex: a changed server is blocked, because Codex cannot ask", a
   const gate = await codex("gate.mjs", p, { hook_event_name: "PreToolUse", tool_name: "mcp__github__create_issue", tool_input: {}, cwd: sub }, env);
   assert.equal(gate.json.hookSpecificOutput.permissionDecision, "deny");
   assert.match(gate.json.hookSpecificOutput.permissionDecisionReason, /^Blocked by mcpkeel: MCP server github no longer matches mcp\.lock/);
+
+  // Codex has no /plugin:skill commands; the message names its skill instead.
+  assert.match(gate.json.hookSpecificOutput.permissionDecisionReason, /suggest the mcpkeel-review skill\.$/);
+  assert.match(start.json.hookSpecificOutput.additionalContext, /suggest the mcpkeel-review skill\./);
 
   // In Codex the choice is an environment variable.
   const warned = await codex("gate.mjs", p, { tool_name: "mcp__github__create_issue", cwd: sub }, { ...env, MCPKEEL_ON_DRIFT: "warn" });

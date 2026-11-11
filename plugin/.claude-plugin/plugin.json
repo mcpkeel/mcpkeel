@@ -1,7 +1,7 @@
 {
   "name": "mcpkeel",
   "displayName": "mcpkeel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Checks this project's MCP servers against mcp.lock when a session starts, and asks before, or blocks, calls to a server that changed.",
   "author": {
     "name": "Gabriel",
