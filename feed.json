@@ -1,0 +1,280 @@
+{
+  "lastChecked": "2026-11-11",
+  "nights": [
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14",
+    "2026-10-15",
+    "2026-10-16",
+    "2026-10-17",
+    "2026-10-18",
+    "2026-10-19",
+    "2026-10-20",
+    "2026-10-21",
+    "2026-10-22",
+    "2026-10-23",
+    "2026-10-24",
+    "2026-10-25",
+    "2026-10-26",
+    "2026-10-27",
+    "2026-10-28",
+    "2026-10-29",
+    "2026-10-30",
+    "2026-10-31",
+    "2026-11-01",
+    "2026-11-02",
+    "2026-11-03",
+    "2026-11-04",
+    "2026-11-05",
+    "2026-11-06",
+    "2026-11-07",
+    "2026-11-08",
+    "2026-11-09",
+    "2026-11-10",
+    "2026-11-11"
+  ],
+  "servers": [
+    {
+      "name": "context7",
+      "status": "ok",
+      "version": "4.6.0"
+    },
+    {
+      "name": "everything",
+      "status": "ok",
+      "version": "2.3.0"
+    },
+    {
+      "name": "fetch",
+      "status": "ok",
+      "version": "2026.11.11"
+    },
+    {
+      "name": "filesystem",
+      "status": "ok",
+      "version": "2.3.0"
+    },
+    {
+      "name": "git",
+      "status": "ok",
+      "version": "2026.11.11"
+    },
+    {
+      "name": "memory",
+      "status": "ok",
+      "version": "2.1.1"
+    },
+    {
+      "name": "playwright",
+      "status": "ok",
+      "version": "1.66.0-alpha-2026-11-09"
+    },
+    {
+      "name": "sequential-thinking",
+      "status": "ok",
+      "version": "2.1.1"
+    },
+    {
+      "name": "time",
+      "status": "ok",
+      "version": "2026.11.11"
+    }
+  ],
+  "notChecked": [],
+  "days": [
+    {
+      "date": "2026-11-11",
+      "changes": 43,
+      "bySeverity": {
+        "critical": 0,
+        "high": 36,
+        "medium": 1,
+        "low": 6
+      },
+      "servers": [
+        "everything",
+        "fetch",
+        "filesystem",
+        "git",
+        "memory",
+        "time"
+      ]
+    },
+    {
+      "date": "2026-11-10",
+      "changes": 3,
+      "bySeverity": {
+        "critical": 0,
+        "high": 2,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "playwright"
+      ]
+    },
+    {
+      "date": "2026-11-09",
+      "changes": 2,
+      "bySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
+    {
+      "date": "2026-11-06",
+      "changes": 2,
+      "bySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "changes": 67,
+      "bySeverity": {
+        "critical": 0,
+        "high": 23,
+        "medium": 30,
+        "low": 14
+      },
+      "servers": [
+        "everything",
+        "fetch",
+        "filesystem",
+        "git",
+        "memory",
+        "sequential-thinking",
+        "time"
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "changes": 2,
+      "bySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
+    {
+      "date": "2026-11-01",
+      "changes": 7,
+      "bySeverity": {
+        "critical": 0,
+        "high": 3,
+        "medium": 3,
+        "low": 1
+      },
+      "servers": [
+        "playwright"
+      ]
+    },
+    {
+      "date": "2026-10-29",
+      "changes": 17,
+      "bySeverity": {
+        "critical": 0,
+        "high": 11,
+        "medium": 0,
+        "low": 6
+      },
+      "servers": [
+        "everything",
+        "fetch",
+        "filesystem",
+        "git",
+        "memory",
+        "time"
+      ]
+    },
+    {
+      "date": "2026-10-25",
+      "changes": 6,
+      "bySeverity": {
+        "critical": 0,
+        "high": 3,
+        "medium": 0,
+        "low": 3
+      },
+      "servers": [
+        "everything",
+        "fetch",
+        "filesystem"
+      ]
+    },
+    {
+      "date": "2026-10-20",
+      "changes": 3,
+      "bySeverity": {
+        "critical": 0,
+        "high": 2,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
+    {
+      "date": "2026-10-19",
+      "changes": 79,
+      "bySeverity": {
+        "critical": 0,
+        "high": 21,
+        "medium": 37,
+        "low": 21
+      },
+      "servers": [
+        "context7",
+        "everything",
+        "fetch",
+        "filesystem",
+        "git",
+        "memory",
+        "sequential-thinking",
+        "time"
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "changes": 2,
+      "bySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
+    {
+      "date": "2026-10-14",
+      "changes": 3,
+      "bySeverity": {
+        "critical": 0,
+        "high": 2,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    }
+  ]
+}
