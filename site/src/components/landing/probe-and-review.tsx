@@ -65,7 +65,7 @@ export function Review() {
           <li>If the review cannot run, the stricter rule-based grades stay in place.</li>
         </ul>
         <p>
-          <a href={SITE.measured}>How six models did on 485 poisoned tools, 30 rug pulls and 83 real changes</a>
+          <a href={SITE.measured}>How eleven models did on 485 poisoned tools, 30 rug pulls and 83 real changes</a>
         </p>
       </div>
       <div>
