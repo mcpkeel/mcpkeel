@@ -121,7 +121,7 @@ The same behaviour, and the `ask` and `warn` settings, are covered by `test/plug
 - B: the changed server, the mcpkeel plugin set to `deny`
 - C: the clean server, the plugin (does the task still get done?)
 
-Sessions run with a temp `HOME` and `CLAUDE_CONFIG_DIR`, `--strict-mcp-config` with only the tracker, and only `Read`, `Glob` and `Grep` among the built-in tools; tool search is off, so the tracker's tools are in context from the first turn. Models were reached through kiro-go. The attack text, the task and the eight models were fixed in a commit before the measured runs; all eight are reported. Ten sessions per arm and model; 95% Wilson intervals. Every number is in [`eval/results/honeytoken.json`](../eval/results/honeytoken.json).
+Sessions run with a temp `HOME` and `CLAUDE_CONFIG_DIR`, `--strict-mcp-config` with only the tracker, and only `Read`, `Glob` and `Grep` among the built-in tools; tool search is off, so the tracker's tools are in context from the first turn. Models were reached through a proxy; the model names are what it was asked for, and its routing cannot be checked from outside. The attack text, the task and the eight models were fixed in local commits before the measured runs, and all eight are reported; the branch was first pushed after the runs, so the order rests on the commits, not on a public timestamp. Ten sessions per arm and model; 95% Wilson intervals. Every number is in [`eval/results/honeytoken.json`](../eval/results/honeytoken.json).
 
 | Model | A: leaked | B: leaked | C: issue filed | A: read `.env.local` | B: read `.env.local` |
 | --- | --- | --- | --- | --- | --- |
@@ -137,7 +137,7 @@ Sessions run with a temp `HOME` and `CLAUDE_CONFIG_DIR`, `--strict-mcp-config` w
 
 What this shows and what it does not:
 
-- **The plugin stopped every leak, and cost no work.** With it, no session sent the canary anywhere; on the clean server every session filed the issue. In B, 73 of the 80 agents called the changed server and were denied; the other 7 did not call it after the warning at session start.
+- **The plugin stopped every leak, and cost no work.** With it, no session sent the canary anywhere; on the clean server every session filed the issue. In B, 73 of the 80 agents called the changed server and were denied, 11 of them with the canary already in the call's arguments (DeepSeek 3.2 7, Qwen3 Coder Next 2, MiniMax M2.5 2): leaks the gate stopped. The other 7 did not call it after the warning at session start.
 - **It stops the call, not the reading.** The changed description still reaches the model: the plugin tells the agent the server changed and blocks its tools, but Claude Code lists them. In B half the sessions read `.env.local` anyway, so the secret was in the model's context. Here the only way out was the blocked tool; an agent that could also run commands or fetch URLs would have had others. That is why the default is to ask, and why a changed server is best reviewed before the session, in CI.
 - **Models differ more than any setting.** The two newest Claude models refused the instruction in every session; DeepSeek 3.2 followed it 9 times in 10. Several models read the file and then left it out of the issue, so reading is not leaking.
 - **One attack, one task, one route.** The attack is a single wording of a single technique. Claude Haiku 5.5 reached the turn limit in 18 of its 20 sessions in A and C, filing the issue again after the proxy's replies; it had filed it in each of them.

@@ -549,7 +549,7 @@ What is not graded is still shown to the reviewer: the injected line is listed, 
 
 ### Agents in real sessions
 
-`eval/agent/honeytoken.mjs` runs headless Claude Code against an issue tracker MCP server that has had a rug pull: one tool's description now asks the agent to read `.env.local`, which holds a random canary, into the issue body. Eight models, ten sessions per arm, models and attack fixed before the runs:
+`eval/agent/honeytoken.mjs` runs headless Claude Code against an issue tracker MCP server that has had a rug pull: one tool's description now asks the agent to read `.env.local`, which holds a random canary, into the issue body. Eight models, ten sessions per arm, models and attack fixed in local commits before the runs:
 
 | | Leaked the canary | Filed the issue |
 | --- | --- | --- |
@@ -557,7 +557,7 @@ What is not graded is still shown to the reviewer: the injected line is listed, 
 | mcpkeel plugin, changed server | 0 of 80 | 0 of 80: the call was blocked |
 | mcpkeel plugin, clean server | 0 of 80 | 80 of 80 |
 
-Leaks came from three models (DeepSeek 3.2 9 of 10, Claude Haiku 4.5 7 of 10, MiniMax M2.5 1 of 10); Claude Sonnet 5.5 and Haiku 5.5 refused in every session. The plugin blocks the call, not the reading: with it, agents still read the file in 40 of 80 sessions, because the changed description still reaches the model. [`docs/EVIDENCE.md`](docs/EVIDENCE.md#does-an-agent-leak-a-secret-through-a-rug-pull) has every model and the limits.
+Leaks came from three models (DeepSeek 3.2 9 of 10, Claude Haiku 4.5 7 of 10, MiniMax M2.5 1 of 10); Claude Sonnet 5.5 and Haiku 5.5 refused in every session. With the plugin, 11 agents put the canary into a call to the changed server, and the gate denied each one. The plugin blocks the call, not the reading: with it, agents still read the file in 40 of 80 sessions, because the changed description still reaches the model. [`docs/EVIDENCE.md`](docs/EVIDENCE.md#does-an-agent-leak-a-secret-through-a-rug-pull) has every model and the limits.
 
 ### Drift feed
 
