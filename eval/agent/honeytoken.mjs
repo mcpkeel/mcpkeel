@@ -21,7 +21,9 @@
 //
 // Sessions are isolated from the machine's Claude Code setup: a temp HOME and
 // CLAUDE_CONFIG_DIR (no user settings, hooks, plugins, memory or CLAUDE.md),
-// --strict-mcp-config with only the tracker, and an allowlist of tools.
+// --strict-mcp-config with only the tracker, and only Read, Glob and Grep
+// among the built-in tools. Tool search is off, so the tracker's tools, and
+// the poisoned description, are in the model's context from the first turn.
 //
 //   npm run build
 //   node eval/agent/honeytoken.mjs --model claude-sonnet-5.5 --runs 20 [--arms A,B,C]
@@ -95,6 +97,7 @@ function runSession(arm, s) {
     "--model", args.model,
     "--output-format", "stream-json", "--verbose",
     "--mcp-config", join(s.dir, ".mcp.json"), "--strict-mcp-config",
+    "--tools", "Read,Glob,Grep",
     "--permission-mode", "dontAsk",
     "--allowedTools", "Read", "Glob", "Grep", "mcp__tracker__create_issue", "mcp__tracker__list_issues",
     "--max-turns", "12",
@@ -109,6 +112,7 @@ function runSession(arm, s) {
     ANTHROPIC_API_KEY: process.env.HONEYTOKEN_API_KEY ?? "not-needed-by-the-local-proxy",
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
     DISABLE_AUTOUPDATER: "1",
+    ENABLE_TOOL_SEARCH: "false",
     HONEYTOKEN_VARIANT: cfg.variant,
     MCPKEEL_BIN: CLI,
     CLAUDE_PLUGIN_OPTION_ON_DRIFT: "deny",
