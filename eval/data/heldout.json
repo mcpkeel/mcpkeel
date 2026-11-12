@@ -1,0 +1,29 @@
+{
+  "what": "The held-out set for the release diff. eval/releases.mjs chose the graded signals on 98 real release pairs, so its 0 of 98 is in-sample. This file fixes which later releases count, the graded signals and the digest of the detector as they were at the cutoff, so the false-positive rate on releases published after it is measured, not chosen. Read by eval/heldout.mjs.",
+  "frozen": "2026-11-12",
+  "cutoff": "2026-11-12T02:45:04Z",
+  "cutoffNote": "The time main reached 7a59bb5 (release 0.6.0, which shipped the graded set). Only releases published after it count.",
+  "commit": "7a59bb597e989fb4491c0c82cc4840344521614d",
+  "detector": {
+    "file": "src/release.ts",
+    "sha256": "85824b3a28e91c0cc77aa3ad8efb83e41ea1db9c708ae7171c2ebfe38077af06"
+  },
+  "graded": ["child-process", "decoded-string", "eval", "hidden-recipient", "install-script"],
+  "rule": "For each package below, every stable version (no prerelease tag) whose registry publish time is after the cutoff, and that is not already in eval/data/npm-releases.json, is compared with the stable version published just before it. A pair is a false positive when the comparison has a graded signal. The digest checked is the registry's at measuring time.",
+  "packages": [
+    "@modelcontextprotocol/server-filesystem",
+    "@modelcontextprotocol/server-memory",
+    "@modelcontextprotocol/server-everything",
+    "@modelcontextprotocol/server-sequential-thinking",
+    "@playwright/mcp",
+    "@upstash/context7-mcp",
+    "@notionhq/notion-mcp-server",
+    "@supabase/mcp-server-supabase",
+    "firecrawl-mcp",
+    "tavily-mcp",
+    "@sentry/mcp-server",
+    "exa-mcp-server",
+    "@heroku/mcp-server",
+    "mcp-remote"
+  ]
+}
