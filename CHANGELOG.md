@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `--explain --provider openai` works with OpenAI reasoning models, such as GPT-5 and later on OpenAI or Azure, which accept only the default temperature. The review asks for temperature 0 and, when the endpoint rejects it, asks again without it.
+
 ## 0.6.0
 
 ### Added

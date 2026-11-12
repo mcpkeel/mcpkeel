@@ -168,6 +168,8 @@ export interface OpenAIOptions {
 export function openaiReviewer(options: OpenAIOptions): Reviewer {
   const base = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
   const usage = newUsage();
+  // Reasoning models (GPT-5 and later) accept only the default temperature.
+  let fixedTemperature = true;
   return {
     name: "openai",
     model: options.model ?? "",
@@ -180,20 +182,30 @@ export function openaiReviewer(options: OpenAIOptions): Reviewer {
       }
       const tag = newTag();
       const started = Date.now();
-      const reply = (await postJson(
-        "Review endpoint",
-        `${base}/chat/completions`,
-        options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {},
-        {
-          model: options.model,
-          temperature: 0,
-          messages: [
-            { role: "system", content: systemPrompt(tag) },
-            { role: "user", content: untrustedBlock(reviewPayload(changes), tag) },
-          ],
-        },
-        options.timeoutMs,
-      )) as { choices?: { message?: { content?: string | null } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+      const post = () =>
+        postJson(
+          "Review endpoint",
+          `${base}/chat/completions`,
+          options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {},
+          {
+            model: options.model,
+            ...(fixedTemperature ? { temperature: 0 } : {}),
+            messages: [
+              { role: "system", content: systemPrompt(tag) },
+              { role: "user", content: untrustedBlock(reviewPayload(changes), tag) },
+            ],
+          },
+          options.timeoutMs,
+        );
+      let raw: unknown;
+      try {
+        raw = await post();
+      } catch (err) {
+        if (!(err instanceof HttpError && err.status === 400 && fixedTemperature && /temperature/i.test(err.detail))) throw err;
+        fixedTemperature = false;
+        raw = await post();
+      }
+      const reply = raw as { choices?: { message?: { content?: string | null } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
       count(usage, started, reply.usage?.prompt_tokens, reply.usage?.completion_tokens);
       return parseReviews(reply.choices?.[0]?.message?.content ?? "", changes.length);
     },
@@ -210,6 +222,17 @@ function reviewPayload(changes: Change[]): unknown[] {
     after: clip(change.after),
     parameter_text: clip(change.context),
   }));
+}
+
+/** An endpoint answered with an error status. */
+class HttpError extends UserError {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly detail: string,
+  ) {
+    super(message);
+  }
 }
 
 /** POST JSON and read JSON back. A redirect is an error, so a key is only ever sent to the host it was meant for. */
@@ -234,7 +257,7 @@ async function postJson(label: string, url: string, headers: Record<string, stri
     } catch {
       // Keep the raw body.
     }
-    throw new UserError(`${label} returned ${response.status}: ${detail}`);
+    throw new HttpError(`${label} returned ${response.status}: ${detail}`, response.status, detail);
   }
   try {
     return JSON.parse(text);
