@@ -417,7 +417,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.6.0
+      - uses: mcpkeel/mcpkeel@v0.6.1
         with:
           probe: true
           explain: true
@@ -448,7 +448,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.6.0
+      - uses: mcpkeel/mcpkeel@v0.6.1
         with:
           mode: update-pr
           explain: true
@@ -475,7 +475,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: mcpkeel/mcpkeel@v0.6.0
+      - uses: mcpkeel/mcpkeel@v0.6.1
         with:
           sarif: mcpkeel.sarif
       - uses: github/codeql-action/upload-sarif@v4
@@ -489,7 +489,7 @@ Code scanning is available on public repositories, and on private ones with GitH
 ### Without the action
 
 ```yaml
-      - run: npx mcpkeel@0.6.0 verify --report "$GITHUB_STEP_SUMMARY"
+      - run: npx mcpkeel@0.6.1 verify --report "$GITHUB_STEP_SUMMARY"
 ```
 
 ### Settings worth getting right
@@ -497,7 +497,7 @@ Code scanning is available on public repositories, and on private ones with GitH
 - **Do not run `--fail-on critical` on the built-in checks alone.** Critical means a pattern matched, and a careful attacker avoids patterns. A plain description change is high. Keep the default, or use `--fail-on medium` together with `--explain`.
 - **Pin the versions of the servers you start.** `npx -y some-server` fetches whatever is newest on every run, so each upstream release fails `verify` as a release nobody chose. `npx -y some-server@1.4.2` only changes when you change it. `mcpkeel init` points out the unpinned ones.
 - **Pin what depends on the machine.** Some servers write details of the machine they run on into their definitions: `mcp-server-time` puts the local timezone in its parameter descriptions. A lockfile written on a laptop then drifts on a runner in another timezone. Set those values in the config, for example `"args": ["mcp-server-time==2026.11.11", "--local-timezone", "UTC"]`, before you run `init`.
-- **Pin the action by commit in workflows that can write.** `mcpkeel/mcpkeel@<commit> # v0.6.0` cannot change under you; a tag can be moved. [mcpkeel-example](https://github.com/mcpkeel/mcpkeel-example) pins every action this way.
+- **Pin the action by commit in workflows that can write.** `mcpkeel/mcpkeel@<commit> # v0.6.1` cannot change under you; a tag can be moved. [mcpkeel-example](https://github.com/mcpkeel/mcpkeel-example) pins every action this way.
 - **Run on a schedule as well as on pull requests.** A remote server changes without any commit on your side.
 - **`init` and `verify` start the servers in the config they read.** Each `command` runs with the permissions of the job. On a pull request, that is the config from the pull request, so the job deserves the same trust as one that runs the pull request's tests: no secrets on pull requests from forks, and a read-only token.
 
