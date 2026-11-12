@@ -22,4 +22,4 @@ Then let the user decide. Accepting writes the current definitions to mcp.lock, 
 - To accept every change: `node ${CLAUDE_PLUGIN_ROOT}/scripts/mcpkeel.mjs update`
 - To accept one server only: `node ${CLAUDE_PLUGIN_ROOT}/scripts/mcpkeel.mjs update <server>`
 
-Run one of these only when the user explicitly asks you to accept, and run `/mcpkeel:verify` afterwards so the gate sees the new lockfile.
+Run one of these only when the user explicitly asks you to accept, and run `/mcpkeel:verify` afterwards so the gate sees the new lockfile. If the server was quarantined, that check lifts the quarantine, and the server starts again from the next session.

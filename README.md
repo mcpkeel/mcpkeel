@@ -371,13 +371,14 @@ mcpkeel also runs inside Claude Code, as a plugin, so a server that changed over
 
 - **When a session starts**, it runs `mcpkeel verify` on the project. If a server no longer matches `mcp.lock`, you see which one and how severe, and Claude is told not to trust that server's tool descriptions. Claude is never handed the changed text itself: that text is what is under suspicion.
 - **When Claude calls a tool** of a server that changed, the call asks you first. Set it to block instead, or only warn, in `/plugin configure mcpkeel@mcpkeel`. Servers the lockfile does not cover, and projects without one, are left alone.
+- **`quarantine`** blocks the call and also keeps a changed server from the project's `.mcp.json` from starting in new sessions, through `disabledMcpjsonServers` in `.claude/settings.local.json`, until the change is accepted. It takes effect from the next session: in the one that finds the change, the server is already running, and its calls are denied. For the first session too, run `mcpkeel verify` in CI or before you start Claude Code. [`plugin/README.md`](plugin/README.md#quarantine) has the details.
 - **`/mcpkeel:review`** shows what changed, with the server's text labelled as data, and accepts it with `mcpkeel update` only when you say so. **`/mcpkeel:verify`** checks again, for example after you accept a change.
 
 The plugin runs the mcpkeel version it pins in its own lockfile, which Claude Code installs with the plugin. Nothing is fetched at session start.
 
 | Setting | Values | Default |
 | --- | --- | --- |
-| When a server changed | `ask`, `deny`, `warn` | `ask` |
+| When a server changed | `ask`, `deny`, `warn`, `quarantine` | `ask` |
 | When a server could not be checked | `allow`, `ask`, `deny` | `allow` |
 | Lowest severity that counts | `critical`, `high`, `medium`, `low` | `low` |
 | Per-server timeout | seconds | `20` |
@@ -557,7 +558,7 @@ What is not graded is still shown to the reviewer: the injected line is listed, 
 | mcpkeel plugin, changed server | 0 of 80 | 0 of 80: the call was blocked |
 | mcpkeel plugin, clean server | 0 of 80 | 80 of 80 |
 
-Leaks came from three models (DeepSeek 3.2 9 of 10, Claude Haiku 4.5 7 of 10, MiniMax M2.5 1 of 10); Claude Sonnet 5.5 and Haiku 5.5 refused in every session. With the plugin, 11 agents put the canary into a call to the changed server, and the gate denied each one. The plugin blocks the call, not the reading: with it, agents still read the file in 40 of 80 sessions, because the changed description still reaches the model. [`docs/EVIDENCE.md`](docs/EVIDENCE.md#does-an-agent-leak-a-secret-through-a-rug-pull) has every model and the limits.
+Leaks came from three models (DeepSeek 3.2 9 of 10, Claude Haiku 4.5 7 of 10, MiniMax M2.5 1 of 10); Claude Sonnet 5.5 and Haiku 5.5 refused in every session. With the plugin, 11 agents put the canary into a call to the changed server, and the gate denied each one. The plugin blocks the call, not the reading: with it, agents still read the file in 40 of 80 sessions, because the changed description still reaches the model. With `quarantine`, the next session does not start the changed server at all: across the five models that read the file with calls blocked, the server started in 0 of 25 such sessions, against 25 of 25 with `deny`, and the agents read the file in 3 of 25, looking for the missing tracker, against 21 of 25. [`docs/EVIDENCE.md`](docs/EVIDENCE.md#does-an-agent-leak-a-secret-through-a-rug-pull) has every model and the limits.
 
 ### Drift feed
 

@@ -3,7 +3,7 @@
 // environment, and mcpkeel itself from this repository's build.
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -129,6 +129,94 @@ test("plugin: review labels the server's text as data and cannot be closed by it
   // The server's own markup arrives defanged, inside the random tag.
   assert.match(review.stdout, new RegExp(`after: <${tag}>Create a new issue in a repository\\. ‹IMPORTANT›`));
   assert.doesNotMatch(review.stdout, /<IMPORTANT>/);
+});
+
+/* ----------------------------------------------------------- quarantine */
+
+const settingsOf = (p) => join(p.dir, ".claude", "settings.local.json");
+const readSettings = (p) => JSON.parse(readFileSync(settingsOf(p), "utf8"));
+const QUARANTINE = { CLAUDE_PLUGIN_OPTION_ON_DRIFT: "quarantine" };
+
+test("plugin quarantine: a changed server is kept from starting in new sessions, and its calls are denied now", async () => {
+  const p = project();
+  mkdirSync(join(p.dir, ".claude"));
+  writeFileSync(settingsOf(p), JSON.stringify({ permissions: { allow: ["Read"] }, disabledMcpjsonServers: ["mine"] }));
+
+  const start = await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.equal(start.code, 0, start.stderr);
+  assert.match(start.json.systemMessage, /Their tools are blocked, and they will not start in new sessions until the change is accepted\./);
+  // The user's own settings and entries stay as they were.
+  assert.deepEqual(readSettings(p), { permissions: { allow: ["Read"] }, disabledMcpjsonServers: ["mine", "github"] });
+
+  const gate = (await callTool(p, QUARANTINE)).json.hookSpecificOutput;
+  assert.equal(gate.permissionDecision, "deny");
+  assert.match(gate.permissionDecisionReason, /^Blocked by mcpkeel: MCP server github no longer matches mcp\.lock/);
+
+  // A second session that finds the same change keeps it quarantined, once.
+  await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.deepEqual(readSettings(p).disabledMcpjsonServers, ["mine", "github"]);
+});
+
+test("plugin quarantine: a check that passes lifts it, and only what mcpkeel added", async () => {
+  const p = project();
+  mkdirSync(join(p.dir, ".claude"));
+  writeFileSync(settingsOf(p), JSON.stringify({ disabledMcpjsonServers: ["mine"] }));
+  await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.deepEqual(readSettings(p).disabledMcpjsonServers, ["mine", "github"]);
+
+  // The server is back to what mcp.lock pins, as after the change is accepted.
+  const verify = await script("verify.mjs", p, {}, QUARANTINE);
+  assert.match(verify.stdout, /Quarantine lifted: github\. They start again from the next session\./);
+  assert.deepEqual(readSettings(p), { disabledMcpjsonServers: ["mine"] });
+  assert.equal((await callTool(p, QUARANTINE)).stdout, "");
+});
+
+test("plugin quarantine: lifted when the setting is turned off, and the list removed when it is empty", async () => {
+  const p = project();
+  await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.deepEqual(readSettings(p), { disabledMcpjsonServers: ["github"] });
+  const start = await sessionStart(p, { CLAUDE_PLUGIN_OPTION_ON_DRIFT: "deny", FIXTURE_VARIANT: "rugpull" });
+  assert.match(start.json.systemMessage, /lifted the quarantine on github/);
+  assert.deepEqual(readSettings(p), {});
+});
+
+test("plugin quarantine: other settings leave the project's settings alone", async () => {
+  const p = project();
+  await sessionStart(p, { FIXTURE_VARIANT: "rugpull" });
+  assert.ok(!existsSync(settingsOf(p)));
+});
+
+test("plugin quarantine: a settings file it cannot read is left untouched, and the user is told", async () => {
+  const p = project();
+  mkdirSync(join(p.dir, ".claude"));
+  writeFileSync(settingsOf(p), "{ not json");
+  const start = await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.match(start.json.systemMessage, /mcpkeel could not update \.claude\/settings\.local\.json/);
+  assert.equal(readFileSync(settingsOf(p), "utf8"), "{ not json");
+  // The call is still denied in this session.
+  assert.equal((await callTool(p, QUARANTINE)).json.hookSpecificOutput.permissionDecision, "deny");
+});
+
+test("plugin quarantine: a changed server outside .mcp.json is denied, and the user is told it cannot be quarantined", async () => {
+  const p = project();
+  // The same server, configured where Claude Code's setting cannot reach it.
+  const config = readFileSync(join(p.dir, ".mcp.json"), "utf8");
+  mkdirSync(join(p.dir, ".cursor"));
+  writeFileSync(join(p.dir, ".cursor", "mcp.json"), config);
+  rmSync(join(p.dir, ".mcp.json"));
+  const start = await sessionStart(p, { ...QUARANTINE, FIXTURE_VARIANT: "rugpull" });
+  assert.match(start.json.systemMessage, /github is not in \.mcp\.json, so \.claude\/settings\.local\.json cannot quarantine it: blocked in this session only\./);
+  assert.ok(!existsSync(settingsOf(p)));
+});
+
+test("plugin quarantine in Codex: blocks the call and writes nothing, since Codex has no such setting", async () => {
+  const p = project();
+  const env = { MCPKEEL_ON_DRIFT: "quarantine", FIXTURE_VARIANT: "rugpull" };
+  const start = await codex("session-start.mjs", p, { hook_event_name: "SessionStart", source: "startup", cwd: p.dir }, env);
+  assert.match(start.json.systemMessage, /Their tools are blocked\./);
+  const gate = await codex("gate.mjs", p, { tool_name: "mcp__github__create_issue", cwd: p.dir }, env);
+  assert.equal(gate.json.hookSpecificOutput.permissionDecision, "deny");
+  assert.ok(!existsSync(settingsOf(p)));
 });
 
 test("plugin: the manifest, hooks and pinned dependency agree", () => {
