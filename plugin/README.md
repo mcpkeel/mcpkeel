@@ -38,6 +38,8 @@ Blocking a call does not keep the agent from reading the changed server's tool d
 
 With `quarantine`, the plugin also adds a changed server to `disabledMcpjsonServers` in the project's `.claude/settings.local.json`. Claude Code does not start a server listed there, so from the next session on the agent never sees it. When a later check finds the server matches `mcp.lock` again, for example after you accept the change with `/mcpkeel:review` and run `/mcpkeel:verify`, the plugin removes the entry, and the server starts again from the next session.
 
+Measured on five models in the session after the one that found the change: the server started in 0 of 25 sessions, against 25 of 25 with `deny`, and agents read the secrets file in 3 of 25, against 21 of 25 ([EVIDENCE](../docs/EVIDENCE.md#quarantine-the-session-after)).
+
 - **It takes effect from the next session.** Claude Code reads the setting when a session starts, and the check runs as it starts, so in the session that finds the change the server is already running, and its calls are denied. To keep a changed server from reaching the agent at all, run `mcpkeel verify` in CI, or before you start a session.
 - **It covers servers in the project's `.mcp.json`.** That is what the setting lists. A changed server from another config is denied in the session, and not quarantined.
 - **It removes only what it added.** A server you listed there yourself stays listed. If the settings file is not valid JSON, the plugin leaves it alone and says so.

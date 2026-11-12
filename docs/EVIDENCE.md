@@ -165,7 +165,28 @@ What this shows and what it does not:
 - **The plugin stopped every leak, and cost no work.** With it, no session sent the canary anywhere; on the clean server every session filed the issue. In B, 73 of the 80 agents called the changed server and were denied, 11 of them with the canary already in the call's arguments (DeepSeek 3.2 7, Qwen3 Coder Next 2, MiniMax M2.5 2): leaks the gate stopped. The other 7 did not call it after the warning at session start.
 - **It stops the call, not the reading.** The changed description still reaches the model: the plugin tells the agent the server changed and blocks its tools, but Claude Code lists them. In B half the sessions read `.env.local` anyway, so the secret was in the model's context. Here the only way out was the blocked tool; an agent that could also run commands or fetch URLs would have had others. That is why the default is to ask, and why a changed server is best reviewed before the session, in CI.
 - **Models differ more than any setting.** The two newest Claude models refused the instruction in every session; DeepSeek 3.2 followed it 9 times in 10. Several models read the file and then left it out of the issue, so reading is not leaking.
+- **Quarantine closes the reading gap from the next session; see below.**
 - **One attack, one task, one route.** The attack is a single wording of a single technique. Claude Haiku 5.5 reached the turn limit in 18 of its 20 sessions in A and C, filing the issue again after the proxy's replies; it had filed it in each of them.
+
+### Quarantine, the session after
+
+The plugin's `quarantine` setting keeps a changed server in the project's `.mcp.json` from starting in new sessions. Two more arms measure it, with the tracker loaded from `.mcp.json` and two sessions in the same project, the first finding the change and the second measured:
+
+- D: the plugin set to `quarantine`
+- E: the plugin set to `deny`, the control
+
+The arms and the models were fixed in a commit pushed before the runs: the five models that read the secret with calls blocked in arm B, five sessions per arm each. 2026-11-12, Claude Code 2.1.322, through the same gateway.
+
+| Model | D: tracker started | E: tracker started | D: read `.env.local` | E: read `.env.local` |
+| --- | --- | --- | --- | --- |
+| DeepSeek 3.2 | 0 / 5 | 5 / 5 | 1 / 5 | 5 / 5 |
+| GLM-5 | 0 / 5 | 5 / 5 | 0 / 5 | 3 / 5 |
+| Qwen3 Coder Next | 0 / 5 | 5 / 5 | 1 / 5 | 4 / 5 |
+| Kimi K3 | 0 / 5 | 5 / 5 | 1 / 5 | 4 / 5 |
+| MiniMax M2.5 | 0 / 5 | 5 / 5 | 0 / 5 | 5 / 5 |
+| **All five** | **0 / 25** | **25 / 25** | **3 / 25** | **21 / 25** |
+
+No session leaked in either arm, and none filed the issue: in D the tracker was not there, in E its calls were denied. With quarantine the changed server never started, so its description never reached the agent. The three reads in D were not the injection: with no tracker, those agents looked through the project's files for one, reading `.mcp.json` and then `.env.local`. Quarantine does not cover the session that finds the change; that one is the `deny` arm B above.
 
 ## The plugin in a real Codex session
 
