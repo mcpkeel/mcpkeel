@@ -80,13 +80,30 @@ The checks were measured as they stand, not tuned to the benchmark. CI runs `eva
 | `worst-case` | a judge that is always wrong, no model | none | 28 of 30 rug pulls lowered; 0 of 485 MCPTox tools lowered (new tools never are) |
 | `claude-haiku-5.5` | Claude Haiku 5.5 | an OpenAI-compatible proxy, `--provider openai` | 484/485 MCPTox critical, 30/30 rug pulls adversarial, 0 attacks lowered, 0/83 real changes raised, 7/83 lowered; 61 requests, 335,883 input and 30,350 output tokens |
 | `claude-sonnet-5.5` | Claude Sonnet 5.5 | the same proxy | 485/485 MCPTox critical, 28/30 rug pulls adversarial (2 functional), 0 attacks lowered, 0/83 raised, 6/83 lowered; 61 requests, 309,096 input and 30,854 output tokens |
-
 | `claude-opus-5.5` | Claude Opus 5.5 | the same proxy, one retry per failed batch | 475/485 MCPTox adversarial, 29/30 rug pulls adversarial, 0 attacks lowered, 0/83 raised, 8/83 lowered; 10 changes without a verdict. 4 of its 64 requests came back as text mcpkeel could not read as verdicts, so `verify` kept the rule-based severities for them |
 | `gpt-5.6-sol`, sample 100 | GPT-5.6 Sol | the same proxy | 98/100 MCPTox adversarial, 26/30 rug pulls adversarial, 0 attacks lowered, 7/83 real changes raised to critical, 7/83 lowered |
 | `kimi-k3`, sample 100 | Kimi K3 | the same proxy | 93/100 MCPTox adversarial, 30/30 rug pulls adversarial, 0 attacks lowered, 0/83 raised, 10/83 lowered |
 | `composer-2.5`, sample 100 | Cursor Composer 2.5 | `cursor-agent -p --mode ask --sandbox enabled` in an empty workspace, behind a local OpenAI-compatible adapter; Cursor adds its own prompt, so its token counts are not comparable | 88/100 MCPTox adversarial, 30/30 rug pulls adversarial, 0 attacks lowered, 0/83 raised, 6/83 lowered |
 
 The model names are what the proxy was asked for; its routing cannot be checked from outside, and its token counts are its own. Costs are those counts at Claude API list prices. Runs of two more models (DeepSeek 3.2, GLM-5) had batches fail, most when the proxy's quota ran out, and are not recorded. A run of `qwen3:4b` on Ollama on a laptop GPU timed out on most batches and is not recorded either. The proxy's token counts for the non-Claude models are its own and are not comparable.
+
+### More models, 2026-11-12
+
+The same eval, mcpkeel 0.6.0 with the fix for reasoning models' temperature, on the fixed sample of 100 MCPTox tools and the full rug-pull and real-change sets, unless the run says otherwise. Two routes: Azure OpenAI deployments, through a local OpenAI-compatible shim that adds Entra ID auth (`via azure`), and Kiro through the kiro-go proxy (`via kiro-go`), which adds about 1,900 tokens of its own prompt to every request. Each run was also sent to Langfuse with `--langfuse`, as an experiment on the dataset `mcpkeel-explain`.
+
+| Run | MCPTox called adversarial | Rug pulls called adversarial | Attacks lowered | Real changes raised to critical | Real changes lowered | Requests, p50 latency |
+| --- | --- | --- | --- | --- | --- | --- |
+| `gpt-6.1-sol via azure` | 99 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 8.4 s |
+| `gpt-5.6-sol via azure` | 95 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 5.7 s |
+| `gpt-5-mini via azure`, full sets | 427 / 485 | 24 / 30 | 0 | 0 / 83 | 9 / 83 | 61, 10.1 s |
+| `gpt-5-mini via azure` | 77 / 100 | 26 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 11.6 s |
+| `gpt-oss-120b via azure` | 76 / 100 | 24 / 30 | 0 | 1 / 83 | 11 / 83 | 22, 3.5 s |
+| `gpt-5.6-sol via kiro-go` | 99 / 100 | 26 / 30 | 0 | 4 / 83 | 7 / 83 | 22, 6.0 s |
+| `grok-4.7 via kiro-go` | 94 / 100 | 26 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 23.9 s |
+| `claude-haiku-5.5 via kiro-go` | 91 / 100 | 23 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 7.8 s |
+| `deepseek-3.2 via kiro-go` | 78 / 100 | 24 / 30 | 0 | 2 / 83 | 11 / 83 | 22, 9.7 s |
+
+No model lowered an attack. Recall on MCPTox ranges from 76 to 99 of 100, so the choice of model matters more for catching attacks than for noise. Claude Haiku 5.5 through kiro-go called 91 of 100 adversarial, against 484 of 485 through the proxy used on 2026-11-11; the route's added prompt is one difference between the two runs. Kiro's quota ran out during this sweep: runs with a batch that got no usable answer in two attempts are not recorded (Claude Sonnet 5.5, Claude Haiku 4.5, GLM-5, Kimi K3, Qwen3 Coder Next, MiniMax M2.5, and the full-set Claude runs). The runs above had every change reviewed; a few needed their one retry.
 
 ## The drift feed
 
