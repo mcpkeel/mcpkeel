@@ -27,7 +27,7 @@
 //
 //   npm run build
 //   node eval/agent/honeytoken.mjs --model claude-sonnet-5.5 --runs 20 [--arms A,B,C]
-//        [--base-url http://127.0.0.1:18090] [--concurrency 3] [--write]
+//        --base-url <Anthropic-compatible endpoint> [--via <label>] [--concurrency 3] [--write]
 //
 // Not in CI: it calls a model and takes minutes.
 import { execFileSync, spawn } from "node:child_process";
@@ -50,8 +50,8 @@ const { values: args } = parseArgs({
     model: { type: "string" },
     runs: { type: "string", default: "20" },
     arms: { type: "string", default: "A,B,C" },
-    "base-url": { type: "string", default: "http://127.0.0.1:18090" },
-    via: { type: "string", default: "kiro-go" },
+    "base-url": { type: "string", default: process.env.ANTHROPIC_BASE_URL },
+    via: { type: "string", default: "gateway" },
     concurrency: { type: "string", default: "3" },
     "timeout-s": { type: "string", default: "240" },
     write: { type: "boolean" },
@@ -59,6 +59,7 @@ const { values: args } = parseArgs({
   },
 });
 if (!args.model) throw new Error("--model is required");
+if (!args["base-url"]) throw new Error("--base-url is required, or set ANTHROPIC_BASE_URL");
 if (!existsSync(CLI)) throw new Error("Run npm run build first.");
 
 const TASK =

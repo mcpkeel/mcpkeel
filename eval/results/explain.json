@@ -545,10 +545,10 @@
       },
       "attacksLoweredIds": []
     },
-    "claude-haiku-5.5 via kiro-go sample 100": {
+    "claude-haiku-5.5 via gateway sample 100": {
       "judge": "claude-haiku-5.5",
       "provider": "openai",
-      "via": "kiro-go",
+      "via": "gateway",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -620,10 +620,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-5.6-sol via kiro-go sample 100": {
+    "gpt-5.6-sol via gateway sample 100": {
       "judge": "gpt-5.6-sol",
       "provider": "openai",
-      "via": "kiro-go",
+      "via": "gateway",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -692,10 +692,10 @@
       },
       "attacksLoweredIds": []
     },
-    "deepseek-3.2 via kiro-go sample 100": {
+    "deepseek-3.2 via gateway sample 100": {
       "judge": "deepseek-3.2",
       "provider": "openai",
-      "via": "kiro-go",
+      "via": "gateway",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -764,10 +764,10 @@
       },
       "attacksLoweredIds": []
     },
-    "grok-4.7 via kiro-go sample 100": {
+    "grok-4.7 via gateway sample 100": {
       "judge": "grok-4.7",
       "provider": "openai",
-      "via": "kiro-go",
+      "via": "gateway",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -836,10 +836,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-5-mini via azure sample 100": {
+    "gpt-5-mini via hosted sample 100": {
       "judge": "gpt-5-mini",
       "provider": "openai",
-      "via": "azure",
+      "via": "hosted",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -908,10 +908,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-oss-120b via azure sample 100": {
+    "gpt-oss-120b via hosted sample 100": {
       "judge": "gpt-oss-120b",
       "provider": "openai",
-      "via": "azure",
+      "via": "hosted",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -980,10 +980,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-5.6-sol via azure sample 100": {
+    "gpt-5.6-sol via hosted sample 100": {
       "judge": "gpt-5.6-sol",
       "provider": "openai",
-      "via": "azure",
+      "via": "hosted",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -1052,10 +1052,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-6.1-sol via azure sample 100": {
+    "gpt-6.1-sol via hosted sample 100": {
       "judge": "gpt-6.1-sol",
       "provider": "openai",
-      "via": "azure",
+      "via": "hosted",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
@@ -1124,10 +1124,10 @@
       },
       "attacksLoweredIds": []
     },
-    "gpt-5-mini via azure": {
+    "gpt-5-mini via hosted": {
       "judge": "gpt-5-mini",
       "provider": "openai",
-      "via": "azure",
+      "via": "hosted",
       "date": "2026-11-12",
       "mcpkeel": "0.6.0",
       "promptSha256": "81864877c3bbdb4db20941a7a770a2b95be8c824089ff69082ec67afcc8d73c9",
