@@ -22,7 +22,10 @@ for (const [name] of unverified) console.log(`UNVERIFIED  ${plainName(name)}: th
 for (const [name] of ok) console.log(`OK          ${plainName(name)}`);
 console.log("");
 if (drifted.length) {
-  console.log(`Calls to changed servers: ${opts.onDrift === "ask" ? "ask first" : opts.onDrift === "deny" ? "blocked" : "not gated"}. /mcpkeel:review shows what changed.`);
+  const response = { ask: "ask first", deny: "blocked", warn: "not gated", quarantine: "blocked, and the servers will not start in new sessions" }[opts.onDrift];
+  console.log(`Calls to changed servers: ${response}. /mcpkeel:review shows what changed.`);
 } else if (!unverified.length) {
   console.log("Every server matches mcp.lock.");
 }
+if (state.quarantine?.lifted?.length) console.log(`Quarantine lifted: ${state.quarantine.lifted.map(plainName).join(", ")}. They start again from the next session.`);
+if (state.quarantine?.error) console.log(`mcpkeel ${state.quarantine.error}.`);

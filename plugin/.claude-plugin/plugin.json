@@ -1,7 +1,7 @@
 {
   "name": "mcpkeel",
   "displayName": "mcpkeel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Checks this project's MCP servers against mcp.lock when a session starts, and asks before, or blocks, calls to a server that changed.",
   "author": {
     "name": "Gabriel",
@@ -26,11 +26,12 @@
     "on_drift": {
       "type": "string",
       "title": "When a server changed",
-      "description": "What happens to a call to a tool of a server that no longer matches mcp.lock: ask you first, deny it, or only warn at session start.",
+      "description": "What happens to a call to a tool of a server that no longer matches mcp.lock: ask you first, deny it, or only warn at session start. Quarantine denies it, and also keeps a server from the project's .mcp.json from starting in new sessions until the change is accepted.",
       "options": [
         "ask",
         "deny",
-        "warn"
+        "warn",
+        "quarantine"
       ],
       "default": "ask"
     },

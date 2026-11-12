@@ -13,7 +13,7 @@ export default function Privacy() {
       <h1>Privacy</h1>
       <p className="lede">mcpkeel collects nothing about you. It has no account, no telemetry and no server of its own.</p>
       <p className="fine">
-        Last updated 2026-11-11. This page covers the mcpkeel command-line tool, its GitHub Action, its plugins for Claude Code and Codex, and this
+        Last updated 2026-11-12. This page covers the mcpkeel command-line tool, its GitHub Action, its plugins for Claude Code and Codex, and this
         website.
       </p>
 
@@ -52,6 +52,10 @@ export default function Privacy() {
         <li>
           They run the same tool on your machine when a session starts, and keep one small record per project, with each server&apos;s name, status
           and change codes, in the plugin&apos;s data directory on your machine.
+        </li>
+        <li>
+          With the <code>quarantine</code> setting, the Claude Code plugin also adds a changed server to, and later removes it from, the project&apos;s
+          <code>.claude/settings.local.json</code>, a file on your machine.
         </li>
         <li>They do not use the model review and send nothing beyond what the tool itself contacts.</li>
       </ul>

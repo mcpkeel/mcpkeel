@@ -29,7 +29,10 @@ const entry = state?.servers?.[server];
 if (!entry) process.exit(0);
 
 const opts = options();
-const decision = entry.status === "drifted" ? opts.onDrift : entry.status === "unverified" ? opts.onUnverified : "allow";
+// In the session that found the drift, a quarantined server is already
+// running, so its calls are denied.
+const onDrift = opts.onDrift === "quarantine" ? "deny" : opts.onDrift;
+const decision = entry.status === "drifted" ? onDrift : entry.status === "unverified" ? opts.onUnverified : "allow";
 if (decision === "allow" || decision === "warn") process.exit(0);
 
 const name = plainName(server);

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- The Claude Code plugin's `on_drift` setting takes `quarantine`: a server from the project's `.mcp.json` that no longer matches `mcp.lock` is added to `disabledMcpjsonServers` in `.claude/settings.local.json`, so Claude Code does not start it in new sessions and the agent never reads its tool descriptions. In the session that finds the change, its calls are denied. The plugin removes the entry when a later check finds the server matches again, and never touches entries it did not add. In Codex, `quarantine` blocks the call, like `deny`. Plugin version 0.2.0.
+- `eval/agent/honeytoken.mjs` has two more arms, D and E: the session after the one that found the change, with `quarantine` and with `deny`.
+
 ### Fixed
 
 - `--explain --provider openai` works with OpenAI reasoning models, such as GPT-5 and later, on OpenAI or on an OpenAI-compatible host, which accept only the default temperature. The review asks for temperature 0 and, when the endpoint rejects it, asks again without it.

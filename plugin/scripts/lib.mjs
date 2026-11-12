@@ -51,10 +51,11 @@ export function options() {
   };
   const seconds = Number(process.env.CLAUDE_PLUGIN_OPTION_TIMEOUT ?? process.env.MCPKEEL_TIMEOUT);
   // Codex parses "ask" but does not support it: it lets the call through. A
-  // gate that cannot ask there must refuse instead.
-  const ask = (value) => (value === "ask" && host() === "codex" ? "deny" : value);
+  // gate that cannot ask there must refuse instead. Codex has no setting that
+  // keeps a server from starting, so quarantine there is a refusal too.
+  const ask = (value) => ((value === "ask" || value === "quarantine") && host() === "codex" ? "deny" : value);
   return {
-    onDrift: ask(pick("ON_DRIFT", ["ask", "deny", "warn"], "ask")),
+    onDrift: ask(pick("ON_DRIFT", ["ask", "deny", "warn", "quarantine"], "ask")),
     onUnverified: ask(pick("ON_UNVERIFIED", ["allow", "ask", "deny"], "allow")),
     failOn: pick("FAIL_ON", ["critical", "high", "medium", "low"], "low"),
     timeoutSeconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 20,
