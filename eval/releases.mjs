@@ -10,32 +10,15 @@
 // The archives in eval/data/npm-releases.json are downloaded once, checked
 // against their pinned digests, and cached in eval/.cache/npm. Only counts and
 // the values of benign signals are kept in eval/results/releases.json.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GRADED, compareReleases, gradedSignals, readTarball, verifyIntegrity } from "../dist/release.js";
+import { GRADED, compareReleases, gradedSignals } from "../dist/release.js";
+import { release } from "./lib/npm.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-const cache = join(here, ".cache", "npm");
-const REGISTRY = "https://registry.npmjs.org";
 const set = JSON.parse(readFileSync(join(here, "data", "npm-releases.json"), "utf8"));
-
-async function release(name, version, integrity) {
-  const file = join(cache, `${name.replace("/", "__")}-${version}.tgz`);
-  let bytes;
-  if (existsSync(file)) bytes = readFileSync(file);
-  else {
-    const base = name.includes("/") ? name.split("/")[1] : name;
-    const response = await fetch(`${REGISTRY}/${name}/-/${base}-${version}.tgz`, { redirect: "error" });
-    if (!response.ok) throw new Error(`${name}@${version}: ${response.status}`);
-    bytes = Buffer.from(await response.arrayBuffer());
-    mkdirSync(cache, { recursive: true });
-    writeFileSync(file, bytes);
-  }
-  verifyIntegrity(bytes, integrity, `${name}@${version}`);
-  return readTarball(bytes);
-}
 
 /* -------------------------------------------------------------- benign */
 

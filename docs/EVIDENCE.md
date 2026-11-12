@@ -57,6 +57,8 @@ End to end, on 2026-10-10: a project with `npx -y @modelcontextprotocol/server-m
 
 Only signals that fired on none of the 98 real pairs are graded, so the 0 / 98 is in-sample: it was chosen on these pairs, not measured on new ones. Those that did, counted in real pairs: a new dependency in 11, a new host in 7, new email addresses in 1 (`@sentry/mcp-server` 0.48.0, its own ingest addresses and examples), a new IP address in 1 and `new Function` in 1. The injected changes are synthetic: the real `postmark-mcp` releases were taken down from npm.
 
+The held-out measure was frozen on 2026-11-12, before any release in it existed. [`eval/data/heldout.json`](../eval/data/heldout.json) fixes the graded signals, the digest of `src/release.ts` and a cutoff, the time 0.6.0 reached `main`. `node eval/heldout.mjs` compares every stable release of the same 14 servers published after the cutoff with the release before it, and refuses to run if the detector changed since the freeze. Results go to `eval/results/heldout.json` as servers publish; until then there is no out-of-sample number.
+
 End to end, on 2026-11-11: `mcpkeel diff --release-diff` on lockfiles pinning the last two releases of `@modelcontextprotocol/server-filesystem` (2.2.0 to 2.3.0), `@playwright/mcp` (0.0.84 to 0.0.85) and `mcp-remote` (0.16.5 to 0.16.6), read from the public registry, reported each as a high release change with no graded signal. For `@playwright/mcp` it listed the four changed lines of `package.json`, all version bumps.
 
 ## The MCPTox benchmark
