@@ -1102,6 +1102,35 @@ test("--provider openai reviews through any OpenAI-compatible endpoint, under th
   assert.match(text.stdout, /Review by local-model: cosmetic\. Harmless\./);
 });
 
+test("--provider openai drops temperature for a model that accepts only the default", async (t) => {
+  const calls = [];
+  const api = createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls.push(body);
+    if ("temperature" in body) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported." } }));
+      return;
+    }
+    const items = JSON.parse(unwrap(body.messages[0].content, body.messages[1].content));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(items.map((item) => ({ index: item.index, verdict: "adversarial", reason: "Asks for a key." }))) } }] }));
+  });
+  await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
+  t.after(() => api.close());
+
+  const dir = project();
+  await run(dir, ["init"]);
+  const env = { FIXTURE_VARIANT: "rugpull", MCPKEEL_REVIEW_API_KEY: "test" };
+  const result = await run(dir, ["verify", "--explain", "--provider", "openai", "--review-url", `http://127.0.0.1:${api.address().port}/v1`, "--model", "gpt-5-mini", "--json"], env);
+  assert.equal(result.code, 1, result.stderr);
+  assert.deepEqual(calls.map((c) => "temperature" in c), [true, false]);
+  const change = JSON.parse(result.stdout).changes.find((c) => c.kind === "tool.description.changed");
+  assert.equal(change.review.verdict, "adversarial");
+});
+
 test("--provider openai says what is missing", async () => {
   const dir = project();
   await run(dir, ["init"]);
