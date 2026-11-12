@@ -9,6 +9,7 @@ export const SITE = {
   example: "https://github.com/mcpkeel/mcpkeel-example",
   evidence: "https://github.com/mcpkeel/mcpkeel/blob/main/docs/EVIDENCE.md",
   measured: "https://github.com/mcpkeel/mcpkeel#measured",
+  agentEval: "https://github.com/mcpkeel/mcpkeel#agents-in-real-sessions",
   email: "hello@mcpkeel.app",
   version: "0.6.1",
   // The day that version was published to npm. Update with the version.

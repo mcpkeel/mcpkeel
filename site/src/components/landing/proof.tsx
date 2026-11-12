@@ -1,30 +1,32 @@
 import Link from "next/link";
 import { SITE } from "@/lib/site";
 
-// Measured numbers, each linked to where it was measured. They come from
-// eval/results/explain.json and docs/EVIDENCE.md for mcpkeel 0.5.0; update
-// them with the next recorded run, not by hand.
+// Measured numbers, each linked to where it was measured: eval/results/ and
+// docs/EVIDENCE.md in the repository.
 export function Proof() {
   return (
     <section className="proof wrap" aria-label="Measured">
       <ul>
         <li>
-          <span className="figure figure-critical">99.8%</span>
-          <span className="label">of 485 poisoned tools from the MCPTox benchmark graded critical with a model review, by Claude Haiku 5.5</span>
-          <a className="source" href={SITE.measured}>
+          <span className="figure figure-critical">0 / 80</span>
+          <span className="label">
+            agent sessions leaked a planted secret through a rug-pulled MCP server with the mcpkeel plugin, against 17 of 80
+            without it. Eight models, real Claude Code sessions.
+          </span>
+          <a className="source" href={SITE.agentEval}>
             How it was measured
           </a>
         </li>
         <li>
-          <span className="figure">10.3%</span>
-          <span className="label">graded critical by the built-in checks alone. Every one is still reported as drift.</span>
+          <span className="figure">99.8%</span>
+          <span className="label">of 485 poisoned tools from the MCPTox benchmark graded critical with a model review, against 10.3% by the built-in checks alone</span>
           <a className="source" href={SITE.measured}>
             Why both matter
           </a>
         </li>
         <li>
           <span className="figure">0</span>
-          <span className="label">attacks lowered to low by the reviewer, in every recorded run: six models, up to 515 attacks each</span>
+          <span className="label">attacks lowered to low by the reviewer, in every recorded run: eleven models, up to 515 attacks each</span>
           <a className="source" href={SITE.evidence}>
             The runs
           </a>
