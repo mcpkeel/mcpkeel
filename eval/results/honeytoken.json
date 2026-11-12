@@ -1,6 +1,6 @@
 {
   "runs": {
-    "claude-sonnet-5.5 via kiro-go": {
+    "claude-sonnet-5.5 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -493,7 +493,7 @@
         }
       ]
     },
-    "claude-haiku-5.5 via kiro-go": {
+    "claude-haiku-5.5 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -986,7 +986,7 @@
         }
       ]
     },
-    "claude-haiku-4.5 via kiro-go": {
+    "claude-haiku-4.5 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -1479,7 +1479,7 @@
         }
       ]
     },
-    "deepseek-3.2 via kiro-go": {
+    "deepseek-3.2 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -2035,7 +2035,7 @@
         }
       ]
     },
-    "glm-5 via kiro-go": {
+    "glm-5 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -2591,7 +2591,7 @@
         }
       ]
     },
-    "qwen3-coder-next via kiro-go": {
+    "qwen3-coder-next via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -3147,7 +3147,7 @@
         }
       ]
     },
-    "kimi-k3 via kiro-go": {
+    "kimi-k3 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",
@@ -3703,7 +3703,7 @@
         }
       ]
     },
-    "minimax-m2.5 via kiro-go": {
+    "minimax-m2.5 via gateway": {
       "date": "2026-11-12",
       "claudeCode": "2.1.322 (Claude Code)",
       "mcpkeel": "0.6.0",

@@ -97,21 +97,21 @@ The model names are what the proxy was asked for; its routing cannot be checked 
 
 ### More models, 2026-11-12
 
-The same eval, mcpkeel 0.6.0, on the fixed sample of 100 MCPTox tools and the full rug-pull and real-change sets, unless the run says otherwise. Two routes: Azure OpenAI deployments, through a local OpenAI-compatible shim that adds Entra ID auth (`via azure`), run with the fix for reasoning models' temperature, which they needed; and an OpenAI-compatible proxy (`via kiro-go`), run before that fix, which ignores `temperature` and adds about 1,900 tokens of its own prompt to every request. Model names are what each route was asked for. Each run was also sent to Langfuse with `--langfuse`, as an experiment on the dataset `mcpkeel-explain`.
+The same eval, mcpkeel 0.6.0, on the fixed sample of 100 MCPTox tools and the full rug-pull and real-change sets, unless the run says otherwise. Two routes: OpenAI models on a cloud-hosted OpenAI-compatible endpoint (`via hosted`), run with the fix for reasoning models' temperature, which they needed; and an OpenAI-compatible gateway serving several providers' models (`via gateway`), run before that fix, which ignores `temperature` and adds about 1,900 tokens of its own prompt to every request. Model names are what each route was asked for. Each run was also sent to Langfuse with `--langfuse`, as an experiment on the dataset `mcpkeel-explain`.
 
 | Run | MCPTox called adversarial | Rug pulls called adversarial | Attacks lowered | Real changes raised to critical | Real changes lowered | Requests, p50 latency |
 | --- | --- | --- | --- | --- | --- | --- |
-| `gpt-6.1-sol via azure` | 99 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 8.4 s |
-| `gpt-5.6-sol via azure` | 95 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 5.7 s |
-| `gpt-5-mini via azure`, full sets | 427 / 485 | 24 / 30 | 0 | 0 / 83 | 9 / 83 | 61, 10.1 s |
-| `gpt-5-mini via azure` | 77 / 100 | 26 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 11.6 s |
-| `gpt-oss-120b via azure` | 76 / 100 | 24 / 30 | 0 | 1 / 83 | 11 / 83 | 22, 3.5 s |
-| `gpt-5.6-sol via kiro-go` | 99 / 100 | 26 / 30 | 0 | 4 / 83 | 7 / 83 | 22, 6.0 s |
-| `grok-4.7 via kiro-go` | 94 / 100 | 26 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 23.9 s |
-| `claude-haiku-5.5 via kiro-go` | 91 / 100 | 23 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 7.8 s |
-| `deepseek-3.2 via kiro-go` | 78 / 100 | 24 / 30 | 0 | 2 / 83 | 11 / 83 | 22, 9.7 s |
+| `gpt-6.1-sol via hosted` | 99 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 8.4 s |
+| `gpt-5.6-sol via hosted` | 95 / 100 | 28 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 5.7 s |
+| `gpt-5-mini via hosted`, full sets | 427 / 485 | 24 / 30 | 0 | 0 / 83 | 9 / 83 | 61, 10.1 s |
+| `gpt-5-mini via hosted` | 77 / 100 | 26 / 30 | 0 | 0 / 83 | 6 / 83 | 22, 11.6 s |
+| `gpt-oss-120b via hosted` | 76 / 100 | 24 / 30 | 0 | 1 / 83 | 11 / 83 | 22, 3.5 s |
+| `gpt-5.6-sol via gateway` | 99 / 100 | 26 / 30 | 0 | 4 / 83 | 7 / 83 | 22, 6.0 s |
+| `grok-4.7 via gateway` | 94 / 100 | 26 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 23.9 s |
+| `claude-haiku-5.5 via gateway` | 91 / 100 | 23 / 30 | 0 | 0 / 83 | 7 / 83 | 22, 7.8 s |
+| `deepseek-3.2 via gateway` | 78 / 100 | 24 / 30 | 0 | 2 / 83 | 11 / 83 | 22, 9.7 s |
 
-No model lowered an attack. Recall on MCPTox ranges from 76 to 99 of 100, so the choice of model matters more for catching attacks than for noise. Claude Haiku 5.5 through kiro-go called 91 of 100 adversarial, against 484 of 485 through the proxy used on 2026-11-11; the route's added prompt is one difference between the two runs. The proxy's quota ran out during this sweep: runs with a batch that got no usable answer in two attempts are not recorded (Claude Sonnet 5.5, Claude Haiku 4.5, GLM-5, Kimi K3, Qwen3 Coder Next, MiniMax M2.5, and the full-set Claude runs). The runs above had every change reviewed; a few needed their one retry.
+No model lowered an attack. Recall on MCPTox ranges from 76 to 99 of 100, so the choice of model matters more for catching attacks than for noise. Claude Haiku 5.5 through the gateway called 91 of 100 adversarial, against 484 of 485 through the proxy used on 2026-11-11; the route's added prompt is one difference between the two runs. The gateway's quota ran out during this sweep: runs with a batch that got no usable answer in two attempts are not recorded (Claude Sonnet 5.5, Claude Haiku 4.5, GLM-5, Kimi K3, Qwen3 Coder Next, MiniMax M2.5, and the full-set Claude runs). The runs above had every change reviewed; a few needed their one retry.
 
 ## The drift feed
 
