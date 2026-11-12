@@ -1,5 +1,5 @@
 {
-  "what": "The held-out set for the release diff, frozen before any release in it existed. eval/releases.mjs chose the graded signals on 98 real release pairs, so its 0 of 98 is in-sample. This file fixes, in advance, which later releases count and which signals are graded, so the false-positive rate on them is measured, not chosen. Read by eval/heldout.mjs.",
+  "what": "The held-out set for the release diff. eval/releases.mjs chose the graded signals on 98 real release pairs, so its 0 of 98 is in-sample. This file fixes which later releases count, the graded signals and the digest of the detector as they were at the cutoff, so the false-positive rate on releases published after it is measured, not chosen. Read by eval/heldout.mjs.",
   "frozen": "2026-11-12",
   "cutoff": "2026-11-12T02:45:04Z",
   "cutoffNote": "The time main reached 7a59bb5 (release 0.6.0, which shipped the graded set). Only releases published after it count.",
