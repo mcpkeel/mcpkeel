@@ -582,6 +582,8 @@ npm test
 
 The tests run the built CLI against local MCP servers over stdio, Streamable HTTP and SSE, and run the GitHub Action's script against a local git remote.
 
+`eval/explain.mjs --langfuse` also sends a run to [Langfuse](https://langfuse.com) as an experiment: each change as a dataset item and a trace, the batch request as a generation, and scores per change. It reads `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`, for example with `node --env-file=<file>`. It is for comparing reviewer models and prompts during development; the CLI sends nothing anywhere.
+
 Releases are published to npm by `.github/workflows/release.yml` when a `v*` tag is pushed. See the comment at the top of that file.
 
 ## Security

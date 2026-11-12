@@ -26,6 +26,12 @@
 //   node eval/explain.mjs --provider anthropic --model claude-haiku-5-5 [--write]
 //       A real model. --sample takes a fixed, deterministic subset of MCPTox,
 //       for slow local models. --via names a gateway or proxy in the results.
+//   node --env-file=$HOME/.config/mcpkeel/langfuse.env eval/explain.mjs ... --langfuse
+//       Also sends the run to Langfuse as an experiment on the dataset
+//       "mcpkeel-explain": one trace per change, its batch request as a
+//       generation, and scores per change. Development only (eval/lib/langfuse.mjs);
+//       the local results are written first, and the keys are checked before
+//       any model is called.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,6 +39,7 @@ import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { diffLockfiles } from "../dist/diff.js";
 import { applyReviews, canLower, claudeReviewer, openaiReviewer, reviewable, systemPrompt } from "../dist/review.js";
+import { connect, sendExperiment } from "./lib/langfuse.mjs";
 import { COMMIT, loadMcptox, lockOf, toolEntry } from "./lib/mcptox-data.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -51,8 +58,12 @@ const { values: args } = parseArgs({
     concurrency: { type: "string", default: "1" },
     write: { type: "boolean" },
     check: { type: "boolean" },
+    langfuse: { type: "boolean" },
   },
 });
+
+// Checks the Langfuse keys before any model is called.
+const langfuse = args.langfuse ? await connect() : undefined;
 
 // List prices per million tokens, input and output, from the Claude API's
 // model table as of 2026-11-03. A model not listed gets no cost estimate.
@@ -116,6 +127,9 @@ function makeReviewer() {
 }
 
 const reviewer = makeReviewer();
+// Per set, per change: the batch request that reviewed it, for Langfuse.
+const generations = { mcptox: [], rugpull: [], benign: [] };
+let batchCount = 0;
 const latencies = [];
 let formatFailures = 0;
 const failures = [];
@@ -126,12 +140,12 @@ async function judge(setName, items) {
   const before = changes.map((c) => ({ severity: c.severity, lowerable: canLower(c) }));
   const size = Number(args.batch);
   const batches = [];
-  for (let i = 0; i < changes.length; i += size) batches.push(changes.slice(i, i + size));
+  for (let i = 0; i < changes.length; i += size) batches.push({ start: i, changes: changes.slice(i, i + size) });
 
   let next = 0;
   const work = async () => {
     while (next < batches.length) {
-      const batch = batches[next++];
+      const { start, changes: batch } = batches[next++];
       if (reviewer.verdictFor) {
         const verdict = reviewer.verdictFor(setName);
         applyReviews(batch, batch.map((_, index) => ({ index, verdict, reason: "worst case" })), reviewer);
@@ -142,9 +156,17 @@ async function judge(setName, items) {
       // severities, as `verify` does.
       for (let attempt = 1; attempt <= 2; attempt++) {
         const started = Date.now();
+        const usageBefore = { ...reviewer.usage };
         try {
           const reviews = await reviewer.review(batch);
           latencies.push(Date.now() - started);
+          // usage is cumulative and shared by concurrent batches, so this is
+          // exact at --concurrency 1 and approximate above it.
+          const input = reviewer.usage.inputTokens - usageBefore.inputTokens;
+          const output = reviewer.usage.outputTokens - usageBefore.outputTokens;
+          const price = priceOf(args.model);
+          const generation = { model: args.model, startMs: started, endMs: Date.now(), input, output, batch: batchCount++, batchSize: batch.length, cost: price ? (input * price[0] + output * price[1]) / 1e6 : undefined };
+          batch.forEach((_, j) => { generations[setName][start + j] = generation; });
           formatFailures += batch.length - reviews.length;
           applyReviews(batch, reviews, reviewer);
           break;
@@ -286,4 +308,40 @@ if (args.write) {
   };
   writeFileSync(RESULTS, `${JSON.stringify(out, null, 2)}\n`);
   console.log(`\nWrote ${key} to eval/results/explain.json`);
+}
+
+if (langfuse) {
+  const sets = { mcptox, rugpull, benign };
+  const items = Object.entries(rows).flatMap(([set, setRows]) =>
+    setRows.map((row, i) => {
+      const change = sets[set][i].change;
+      const attack = set !== "benign";
+      return {
+        id: row.id,
+        set,
+        input: { server: change.server, kind: change.kind, subject: change.subject, severity: row.severity, before: change.before, after: change.after },
+        expected: { adversarial: attack },
+        output: { verdict: row.verdict, effect: row.effect, severity: row.after },
+        scores: {
+          verdict: row.verdict,
+          // An attack called adversarial, or a real change not called adversarial.
+          correct: attack ? row.verdict === "adversarial" : row.verdict !== "adversarial",
+          lowered: row.effect === "lowered",
+          raised: row.effect === "raised",
+          ...(attack ? { attack_lowered: row.effect === "lowered" } : {}),
+        },
+        generation: generations[set][i],
+      };
+    }),
+  );
+  const sent = await sendExperiment(langfuse, {
+    items,
+    run: {
+      name: `${key} · prompt ${run.promptSha256.slice(0, 8)} · ${new Date(started).toISOString().slice(0, 16)}`,
+      description: `--explain on ${run.judge}${run.via ? ` via ${run.via}` : ""}, mcpkeel ${run.mcpkeel}, batches of ${run.batch}`,
+      startMs: started,
+      metadata: { model: run.judge, via: run.via ?? "", mcpkeel: run.mcpkeel, prompt_sha256: run.promptSha256, batch: run.batch, sample: args.sample ?? "full" },
+    },
+  });
+  console.log(`\nSent to Langfuse: ${sent.traces} traces, ${sent.spans} spans, ${sent.scores} scores. ${sent.url}`);
 }
