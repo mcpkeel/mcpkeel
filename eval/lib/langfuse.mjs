@@ -1,4 +1,5 @@
-// Sends an eval/explain.mjs run to Langfuse as an experiment, for development
+// Sends an eval run (eval/explain.mjs, eval/agent/honeytoken.mjs) to Langfuse
+// as an experiment, for development
 // only: nothing here is part of the mcpkeel package, and the CLI sends nothing
 // anywhere. Plain fetch, no SDK:
 //
@@ -12,7 +13,11 @@
 // See https://langfuse.com/integrations/native/opentelemetry/experiments.
 import { randomBytes } from "node:crypto";
 
-export const DATASET = "mcpkeel-explain";
+const EXPLAIN = {
+  name: "mcpkeel-explain",
+  description: "mcpkeel --explain eval: MCPTox poisoned tools, rug pulls, and real drift from the nightly canary. See eval/explain.mjs.",
+  scope: "mcpkeel/eval/explain",
+};
 
 const hex = (bytes) => randomBytes(bytes).toString("hex");
 const nanos = (ms) => `${BigInt(Math.round(ms)) * 1_000_000n}`;
@@ -35,6 +40,7 @@ export async function connect(env = process.env) {
   const base = env.LANGFUSE_BASE_URL.replace(/\/+$/, "");
   const auth = `Basic ${Buffer.from(`${env.LANGFUSE_PUBLIC_KEY}:${env.LANGFUSE_SECRET_KEY}`).toString("base64")}`;
 
+  const warned = new Set();
   async function call(method, path, body) {
     const response = await fetch(`${base}${path}`, {
       method,
@@ -45,6 +51,11 @@ export async function connect(env = process.env) {
     const text = await response.text();
     if (!response.ok) throw new Error(`Langfuse ${method} ${path}: ${response.status} ${text.slice(0, 200)}`);
     const json = text ? JSON.parse(text) : {};
+    // Langfuse marks an endpoint it is retiring in the answer itself.
+    if (json._deprecation && !warned.has(path)) {
+      warned.add(path);
+      console.error(`Langfuse ${method} ${path} is deprecated: ${String(json._deprecation.message ?? "").slice(0, 200)}`);
+    }
     // 207: some items rejected. The scores endpoint asks not to retry these.
     if (response.status === 207) throw new Error(`Langfuse ${method} ${path}: partly rejected: ${text.slice(0, 300)}`);
     return json;
@@ -62,11 +73,17 @@ async function pool(items, size, fn) {
 
 /**
  * Sends one run.
- *   items:   [{ id, set, input, expected, output, scores: {name: value}, generation? }]
+ *   items:   [{ id, set, input, expected, output, scores: {name: value}, generation?,
+ *               name?, metadata?, startMs?, endMs?, spans? }]
  *            generation: { model, startMs, endMs, input, output, batch, batchSize }
+ *            spans: [{ key, parent?, name, type, startMs, endMs, input?, output?, model?,
+ *                      usage?, level?, statusMessage?, metadata? }], children of the
+ *                   item's root span, or of the span whose key is `parent`
  *   run:     { name, description, metadata }
+ *   dataset: { name, description, scope }, the explain eval's by default
  */
-export async function sendExperiment(client, { items, run }) {
+export async function sendExperiment(client, { items, run, dataset: target = EXPLAIN }) {
+  const DATASET = target.name;
   // The dataset and its items: upserted, so every run links the same items.
   let dataset;
   try {
@@ -74,7 +91,7 @@ export async function sendExperiment(client, { items, run }) {
   } catch {
     dataset = await client.call("POST", "/api/public/v2/datasets", {
       name: DATASET,
-      description: "mcpkeel --explain eval: MCPTox poisoned tools, rug pulls, and real drift from the nightly canary. See eval/explain.mjs.",
+      description: target.description,
     });
   }
   await pool(items, 8, (item) =>
@@ -98,20 +115,22 @@ export async function sendExperiment(client, { items, run }) {
     const traceId = hex(16);
     const rootId = hex(8);
     const g = item.generation;
-    const start = g?.startMs ?? run.startMs;
-    const end = g?.endMs ?? start;
+    const start = item.startMs ?? g?.startMs ?? run.startMs;
+    const end = item.endMs ?? g?.endMs ?? start;
+    const name = item.name ?? `explain ${item.set}`;
     const itemAttrs = { "langfuse.experiment.item.id": `${DATASET}:${item.id}`, "langfuse.experiment.item.root_observation_id": rootId };
     spans.push({
       traceId,
       spanId: rootId,
-      name: `explain ${item.set}`,
+      name,
       kind: 1,
       startTimeUnixNano: nanos(start),
       endTimeUnixNano: nanos(end),
       attributes: attributes({
         ...experiment,
         ...itemAttrs,
-        "langfuse.trace.name": `explain ${item.set}`,
+        "langfuse.trace.name": name,
+        ...Object.fromEntries(Object.entries(item.metadata ?? {}).map(([key, value]) => [`langfuse.trace.metadata.${key}`, String(value)])),
         "langfuse.experiment.description": run.description,
         "langfuse.experiment.item.expected_output": item.expected,
         "langfuse.experiment.item.metadata.set": item.set,
@@ -143,6 +162,30 @@ export async function sendExperiment(client, { items, run }) {
         }),
       });
     }
+    const ids = new Map((item.spans ?? []).map((span) => [span.key, hex(8)]));
+    for (const span of item.spans ?? []) {
+      spans.push({
+        traceId,
+        spanId: ids.get(span.key),
+        parentSpanId: ids.get(span.parent) ?? rootId,
+        name: span.name,
+        kind: span.type === "generation" ? 3 : 1,
+        startTimeUnixNano: nanos(span.startMs),
+        endTimeUnixNano: nanos(Math.max(span.endMs, span.startMs)),
+        attributes: attributes({
+          ...experiment,
+          ...itemAttrs,
+          "langfuse.observation.type": span.type,
+          "langfuse.observation.input": span.input,
+          "langfuse.observation.output": span.output,
+          "langfuse.observation.model.name": span.model,
+          "langfuse.observation.usage_details": span.usage,
+          "langfuse.observation.level": span.level,
+          "langfuse.observation.status_message": span.statusMessage,
+          ...Object.fromEntries(Object.entries(span.metadata ?? {}).map(([key, value]) => [`langfuse.observation.metadata.${key}`, String(value)])),
+        }),
+      });
+    }
     for (const [name, value] of Object.entries(item.scores)) {
       const dataType = typeof value === "boolean" ? "BOOLEAN" : typeof value === "number" ? "NUMERIC" : "CATEGORICAL";
       scores.push({ traceId, observationId: rootId, name, value: typeof value === "boolean" ? Number(value) : value, dataType, environment: "experiment" });
@@ -152,7 +195,7 @@ export async function sendExperiment(client, { items, run }) {
   const resource = { attributes: attributes({ "service.name": "mcpkeel-eval", "langfuse.environment": "experiment" }) };
   for (let i = 0; i < spans.length; i += 500) {
     await client.call("POST", "/api/public/otel/v1/traces", {
-      resourceSpans: [{ resource, scopeSpans: [{ scope: { name: "mcpkeel/eval/explain" }, spans: spans.slice(i, i + 500) }] }],
+      resourceSpans: [{ resource, scopeSpans: [{ scope: { name: target.scope }, spans: spans.slice(i, i + 500) }] }],
     });
   }
   for (let i = 0; i < scores.length; i += 200) await client.call("POST", "/api/public/scores", scores.slice(i, i + 200));
