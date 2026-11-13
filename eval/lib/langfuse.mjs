@@ -40,6 +40,7 @@ export async function connect(env = process.env) {
   const base = env.LANGFUSE_BASE_URL.replace(/\/+$/, "");
   const auth = `Basic ${Buffer.from(`${env.LANGFUSE_PUBLIC_KEY}:${env.LANGFUSE_SECRET_KEY}`).toString("base64")}`;
 
+  const warned = new Set();
   async function call(method, path, body) {
     const response = await fetch(`${base}${path}`, {
       method,
@@ -50,6 +51,11 @@ export async function connect(env = process.env) {
     const text = await response.text();
     if (!response.ok) throw new Error(`Langfuse ${method} ${path}: ${response.status} ${text.slice(0, 200)}`);
     const json = text ? JSON.parse(text) : {};
+    // Langfuse marks an endpoint it is retiring in the answer itself.
+    if (json._deprecation && !warned.has(path)) {
+      warned.add(path);
+      console.error(`Langfuse ${method} ${path} is deprecated: ${String(json._deprecation.message ?? "").slice(0, 200)}`);
+    }
     // 207: some items rejected. The scores endpoint asks not to retry these.
     if (response.status === 207) throw new Error(`Langfuse ${method} ${path}: partly rejected: ${text.slice(0, 300)}`);
     return json;
