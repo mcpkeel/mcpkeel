@@ -3,7 +3,7 @@ name: Release
 # Publishes to npm when a version tag is pushed:
 #
 #   npm version X.Y.Z --no-git-tag-version   # and version + released in site/src/lib/site.ts
-#   git commit -am "Release 0.4.0" && git tag v0.4.0 && git push --follow-tags
+#   git commit -am "Release X.Y.Z" && git tag vX.Y.Z && git push --follow-tags
 #
 # Publishing uses npm trusted publishing: npm verifies that the request comes
 # from this workflow in this repository, so there is no token to store, leak or

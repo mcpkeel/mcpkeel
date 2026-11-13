@@ -17,7 +17,7 @@ const archivo = localFont({
 });
 
 // The italic is a separate family that is not preloaded: it sets a few
-// words, and preloading it competed with the upright face on slow links.
+// words, and a preload would compete with the upright face on slow links.
 const archivoItalic = localFont({
   src: "./fonts/archivo-latin-wdth-italic.woff2",
   style: "italic",
