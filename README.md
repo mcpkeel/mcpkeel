@@ -595,7 +595,7 @@ npm test
 
 The tests run the built CLI against local MCP servers over stdio, Streamable HTTP and SSE, and run the GitHub Action's script against a local git remote.
 
-`eval/explain.mjs --langfuse` also sends a run to [Langfuse](https://langfuse.com) as an experiment: each change as a dataset item and a trace, the batch request as a generation, and scores per change. It reads `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`, for example with `node --env-file=<file>`. It is for comparing reviewer models and prompts during development; the CLI sends nothing anywhere.
+`eval/explain.mjs --langfuse` also sends a run to [Langfuse](https://langfuse.com) as an experiment: each change as a dataset item and a trace, the batch request as a generation, and scores per change. It reads `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`, for example with `node --env-file=<file>`. `eval/agent/honeytoken.mjs --langfuse` does the same for the agent eval, on the dataset `mcpkeel-honeytoken`: each session as a trace, with a generation per model message, a span per tool call and hook, a sub-agent's work nested under the call that started it, and the session's outcomes (`leaked`, `read_secret`, `blocked_in_flight`, `issue_filed`) as scores. `--from-cache` sends a recorded run from its transcripts instead of running sessions. Both are for comparing models and prompts during development; the CLI sends nothing anywhere.
 
 Releases are published to npm by `.github/workflows/release.yml` when a `v*` tag is pushed. See the comment at the top of that file.
 
