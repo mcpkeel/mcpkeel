@@ -423,9 +423,9 @@ export async function inspectRelease(before: PackagePin, after: PackagePin, opti
 /* -------------------------------------------------------------- grading */
 
 /**
- * Signals that make a release change critical (MK108). Chosen by
- * eval/releases.mjs: only kinds that fire on no real release of the popular
- * servers it reads are graded; the rest are shown to the reviewer as context.
+ * Signals that make a release change critical (MK108): the kinds that fire on
+ * no real release of the popular servers eval/releases.mjs reads. The rest
+ * are shown to the reviewer as context.
  */
 export const GRADED: ReadonlySet<SignalKind> = new Set<SignalKind>(["install-script", "hidden-recipient", "child-process", "eval", "decoded-string"]);
 

@@ -16,7 +16,7 @@ const REGISTRY = "https://registry.npmjs.org";
 const PER_PACKAGE = 8;
 
 // Widely installed MCP servers, from the canary's set and the most used
-// third-party ones. Chosen for being real and maintained, not for being clean.
+// third-party ones.
 const PACKAGES = [
   "@modelcontextprotocol/server-filesystem",
   "@modelcontextprotocol/server-memory",
