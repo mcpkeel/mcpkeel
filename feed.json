@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-11-16",
+  "lastChecked": "2026-11-17",
   "nights": [
     "2026-10-12",
     "2026-10-13",
@@ -36,13 +36,14 @@
     "2026-11-13",
     "2026-11-14",
     "2026-11-15",
-    "2026-11-16"
+    "2026-11-16",
+    "2026-11-17"
   ],
   "servers": [
     {
       "name": "context7",
-      "status": "ok",
-      "version": "4.7.0"
+      "status": "drift",
+      "version": "4.7.3"
     },
     {
       "name": "everything",
@@ -87,6 +88,19 @@
   ],
   "notChecked": [],
   "days": [
+    {
+      "date": "2026-11-17",
+      "changes": 2,
+      "bySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "context7"
+      ]
+    },
     {
       "date": "2026-11-12",
       "changes": 2,
