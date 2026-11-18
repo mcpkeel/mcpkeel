@@ -93,9 +93,9 @@
       "integrity": "sha256-MK8jd/7eP9Ab1PH5QJdkPppi6n/qgumRu/li5I44i48=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-GrmmVZxdvy2k7zjM4W0ROAs8Dot8+FrBacGHNI83+c5dePgQORErksMLg0g3BZsxiVLZ7qExdu/QOY2wBbD9Rw==",
+        "integrity": "sha512-fOONra8VnAjlVp5xO+dWWoKGkZYg8sBEg52txVoLT0N43B3F5nX3UmsgHch79DM0L+nVCi/w5d/WV6UfhBH7kA==",
         "name": "@modelcontextprotocol/server-everything",
-        "version": "2.3.0"
+        "version": "2.3.1"
       },
       "prompts": {
         "args-prompt": {
@@ -157,7 +157,7 @@
       },
       "serverInfo": {
         "name": "mcp-servers/everything",
-        "version": "2.3.0"
+        "version": "2.3.1"
       },
       "source": {
         "args": [
@@ -632,9 +632,9 @@
       "integrity": "sha256-fhWoEIaYVEXWiD5zW9TwvZgEPWuwY6Npx4IAcqEd7Kg=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-2sFRMASF5/OafOxTHi96CDsNpWS3gKFwfTBUZPALnY0=",
+        "integrity": "sha256-wEPLPNyfReV/bkQhB1fgf4dBZfk5gb+/QlF/SZ9De5Y=",
         "name": "mcp-server-fetch",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "prompts": {
         "fetch": {
@@ -651,7 +651,7 @@
       },
       "serverInfo": {
         "name": "mcp-fetch",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "source": {
         "args": [
@@ -722,13 +722,13 @@
       "integrity": "sha256-MreS5F73ibf8+2bc7t7Cz8dbS0R6QOjYvKACIukycUA=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-dnwDFqYi2Q3VbFDnVOUme4+81CzwHBj3OKeYEgZ6UkBp7rWSm5OKiidemgIF0kkt5AyAi6mHsqx0cfTZBP1DJQ==",
+        "integrity": "sha512-BoT8Gws5MsetfAey4vDyuzy8WYQES6mGYLSShuqSNGAC0X0NBV4p78/R78KfW4RkxtWz+zxhS9jwhzJrQUTt2Q==",
         "name": "@modelcontextprotocol/server-filesystem",
-        "version": "2.3.0"
+        "version": "2.4.0"
       },
       "serverInfo": {
         "name": "secure-filesystem-server",
-        "version": "2.3.0"
+        "version": "2.4.0"
       },
       "source": {
         "args": [
@@ -1499,12 +1499,12 @@
       "transport": "stdio"
     },
     "git": {
-      "integrity": "sha256-EtR3yUWbzSDCPCykqNx0VvOUKH3jZCIGkITzcMIMtmM=",
+      "integrity": "sha256-n2oPRnk5me/4bnNjh6VJ27vQMDDGu/JmFmwRGK8KJEU=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-uYzXaVCjiorzpt/ImC/A2PdagV3v5f1kHArx7tbDB+s=",
+        "integrity": "sha256-AaT4izFzUiHLMfK15b4FDdLgcxSAiJvXRlTeq2TbeaI=",
         "name": "mcp-server-git",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "prompts": {
         "git_commit_message": {
@@ -1539,7 +1539,7 @@
       },
       "serverInfo": {
         "name": "mcp-git",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "source": {
         "args": [
@@ -1922,7 +1922,7 @@
             "openWorldHint": false,
             "readOnlyHint": true
           },
-          "description": "Lists the repository's remotes with their fetch and push URLs, like `git remote -v`. Credentials embedded in a URL are shown as <redacted>",
+          "description": "Lists the repository's remotes with their fetch and push URLs, like `git remote -v`. Credentials embedded in a URL's userinfo, query values or fragment are shown as <redacted>; path segments are shown as configured",
           "inputSchema": {
             "properties": {
               "repo_path": {
@@ -1937,7 +1937,7 @@
             "title": "remoteArguments",
             "type": "object"
           },
-          "integrity": "sha256-SDnMImTxYGhLqU1ujXLWL0UX7T4k4aAeIAO8sbuqZQM="
+          "integrity": "sha256-1o39bCTAs/PfLUfpS+DZ6yb9S+d6npK9uPvmfEzNBok="
         },
         "git_reset": {
           "annotations": {
@@ -2020,13 +2020,13 @@
       "integrity": "sha256-lKQH7Oa0EDWFMHFDq+uoE7w8rHD0mrtXpot7H9BQTbU=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-MbjK6Pi+uGU3EwGk9HyCp/1zKwnuB/QMQ/wQOlswaLgHzIeeCuyVdWUTWg0hTGBk+n+3l5la5a4egbt8YuoVAg==",
+        "integrity": "sha512-MMk597vxcPbnDvHYJ5aw+ODXrVnxJvZuL0K1MpX5uOg9EBmO4Tbz7q0VezVG7fIq9Woas9HM7UNC4T4iUTYI8A==",
         "name": "@modelcontextprotocol/server-memory",
-        "version": "2.1.1"
+        "version": "2.2.1"
       },
       "serverInfo": {
         "name": "memory-server",
-        "version": "2.1.1"
+        "version": "2.2.1"
       },
       "source": {
         "args": [
@@ -3729,13 +3729,13 @@
       "integrity": "sha256-IuMj9Wf//QHGIVRzS4VnGvO+jqh+us2NfpHHJ8xIqTE=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-yvj9eotCoXX7BLmyOKdajnCYB5vgeCS3YwtEU0wCIcVgl+xvCdBtjkd0CTA45Ljh2+Iv1538n28VAnrstps1Tg==",
+        "integrity": "sha512-Tv3AniI/gc+X2J4YjJmZ0BCP/82clUTvOt7Z9z8PWHEdE4/123iHUyJJk0dRMCE/mlskmOuBAgHv+pDq6KvBDA==",
         "name": "@modelcontextprotocol/server-sequential-thinking",
-        "version": "2.1.1"
+        "version": "2.2.0"
       },
       "serverInfo": {
         "name": "sequential-thinking-server",
-        "version": "2.1.1"
+        "version": "2.2.0"
       },
       "source": {
         "args": [
@@ -3860,14 +3860,14 @@
       "integrity": "sha256-AkWVkFmoa9EqqTiwOvENa5fIhFK0SddJWogV5O5jEr8=",
       "package": {
         "ecosystem": "pypi",
-        "integrity": "sha256-FyX7BoWd211GDU6oIRU/7b2EckHxovjb3+4IOHmxzaQ=",
+        "integrity": "sha256-FxC3XU4at9ezc9L9JyCJ7LXZpAFyVyphpfu5b9TtT2A=",
         "name": "mcp-server-time",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "prompts": {},
       "serverInfo": {
         "name": "mcp-time",
-        "version": "2026.11.11"
+        "version": "2026.11.18"
       },
       "source": {
         "args": [
