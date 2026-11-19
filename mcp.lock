@@ -2777,16 +2777,16 @@
       "transport": "stdio"
     },
     "playwright": {
-      "integrity": "sha256-F32+MGAh0+QK9sSneZcNSR2jZzHPwk0AE4m4pZjXNzs=",
+      "integrity": "sha256-dv9mG53EPwnVQPnb5MGuO0GC0vQfeaVjYipwWpHvO/k=",
       "package": {
         "ecosystem": "npm",
-        "integrity": "sha512-bSfECMbLXhJdWkGhLzNMxTZuazG+9IDJ679gflji3yyD94e7ARnGdqmJmG6lTPB+gYX+OiFLmX5myBl62+wZEw==",
+        "integrity": "sha512-4SL9OSINmik3+EObCYJIxH8BkhcqqGU6CM8XIgztW015iBVR9WR6Q0xF180Ery+xuEVyyK5r6nC2bOg3zjgCoA==",
         "name": "@playwright/mcp",
-        "version": "0.0.85"
+        "version": "0.0.86"
       },
       "serverInfo": {
         "name": "Playwright",
-        "version": "1.66.0-alpha-2026-11-09"
+        "version": "1.66.0-alpha-2026-11-18"
       },
       "source": {
         "args": [
@@ -2858,14 +2858,14 @@
             "readOnlyHint": false,
             "title": "Close browser"
           },
-          "description": "Close the page",
+          "description": "Close the browser and all open tabs.",
           "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {},
             "type": "object"
           },
-          "integrity": "sha256-059XEQZous/MNhVwT3IkAT+IAKoYqjLZU3Pg9ShSgHc="
+          "integrity": "sha256-Tz8Rm35pj8sWUuFiP+4X0UZOACtCZTkzDL495iMHMMg="
         },
         "browser_console_messages": {
           "annotations": {

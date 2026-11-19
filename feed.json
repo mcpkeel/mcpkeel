@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-11-18",
+  "lastChecked": "2026-11-19",
   "nights": [
     "2026-10-12",
     "2026-10-13",
@@ -38,7 +38,8 @@
     "2026-11-15",
     "2026-11-16",
     "2026-11-17",
-    "2026-11-18"
+    "2026-11-18",
+    "2026-11-19"
   ],
   "servers": [
     {
@@ -48,47 +49,60 @@
     },
     {
       "name": "everything",
-      "status": "drift",
+      "status": "ok",
       "version": "2.3.1"
     },
     {
       "name": "fetch",
-      "status": "drift",
+      "status": "ok",
       "version": "2026.11.18"
     },
     {
       "name": "filesystem",
-      "status": "drift",
+      "status": "ok",
       "version": "2.4.0"
     },
     {
       "name": "git",
-      "status": "drift",
+      "status": "ok",
       "version": "2026.11.18"
     },
     {
       "name": "memory",
-      "status": "drift",
+      "status": "ok",
       "version": "2.2.1"
     },
     {
       "name": "playwright",
-      "status": "ok",
-      "version": "1.66.0-alpha-2026-11-09"
+      "status": "drift",
+      "version": "1.66.0-alpha-2026-11-18"
     },
     {
       "name": "sequential-thinking",
-      "status": "drift",
+      "status": "ok",
       "version": "2.2.0"
     },
     {
       "name": "time",
-      "status": "drift",
+      "status": "ok",
       "version": "2026.11.18"
     }
   ],
   "notChecked": [],
   "days": [
+    {
+      "date": "2026-11-19",
+      "changes": 3,
+      "bySeverity": {
+        "critical": 0,
+        "high": 2,
+        "medium": 0,
+        "low": 1
+      },
+      "servers": [
+        "playwright"
+      ]
+    },
     {
       "date": "2026-11-18",
       "changes": 15,
