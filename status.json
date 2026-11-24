@@ -1,10 +1,10 @@
 {
-  "lastChecked": "2026-11-23",
+  "lastChecked": "2026-11-24",
   "servers": [
     {
       "name": "context7",
-      "status": "ok",
-      "version": "4.7.3"
+      "status": "drift",
+      "version": "4.8.0"
     },
     {
       "name": "everything",

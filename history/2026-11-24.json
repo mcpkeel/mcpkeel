@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-24",
+  "changes": 6,
+  "bySeverity": {
+    "critical": 0,
+    "high": 4,
+    "medium": 1,
+    "low": 1
+  },
+  "servers": [
+    "context7"
+  ],
+  "findings": [
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK119",
+      "owasp": "MCP03_2025",
+      "kind": "tool.param.description.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK112",
+      "owasp": "MCP03_2025",
+      "kind": "tool.description.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "high",
+      "rule": "MK106",
+      "owasp": "MCP04_2025",
+      "kind": "server.package.changed"
+    },
+    {
+      "server": "context7",
+      "severity": "medium",
+      "rule": "MK117",
+      "owasp": "MCP02_2025",
+      "kind": "tool.param.added"
+    },
+    {
+      "server": "context7",
+      "severity": "low",
+      "rule": "MK105",
+      "owasp": "MCP04_2025",
+      "kind": "server.version.changed"
+    }
+  ]
+}
