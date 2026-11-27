@@ -1,5 +1,5 @@
 {
-  "lastChecked": "2026-11-26",
+  "lastChecked": "2026-11-27",
   "nights": [
     "2026-10-12",
     "2026-10-13",
@@ -46,38 +46,39 @@
     "2026-11-23",
     "2026-11-24",
     "2026-11-25",
-    "2026-11-26"
+    "2026-11-26",
+    "2026-11-27"
   ],
   "servers": [
     {
       "name": "context7",
-      "status": "ok",
-      "version": "4.8.0"
+      "status": "drift",
+      "version": "4.9.1"
     },
     {
       "name": "everything",
-      "status": "ok",
-      "version": "2.3.1"
-    },
-    {
-      "name": "fetch",
-      "status": "ok",
-      "version": "2026.11.18"
-    },
-    {
-      "name": "filesystem",
-      "status": "ok",
+      "status": "drift",
       "version": "2.4.0"
     },
     {
+      "name": "fetch",
+      "status": "drift",
+      "version": "2026.11.27"
+    },
+    {
+      "name": "filesystem",
+      "status": "drift",
+      "version": "2.4.1"
+    },
+    {
       "name": "git",
-      "status": "ok",
-      "version": "2026.11.18"
+      "status": "drift",
+      "version": "2026.11.27"
     },
     {
       "name": "memory",
-      "status": "ok",
-      "version": "2.2.1"
+      "status": "drift",
+      "version": "2.2.2"
     },
     {
       "name": "playwright",
@@ -91,12 +92,31 @@
     },
     {
       "name": "time",
-      "status": "ok",
-      "version": "2026.11.18"
+      "status": "drift",
+      "version": "2026.11.27"
     }
   ],
   "notChecked": [],
   "days": [
+    {
+      "date": "2026-11-27",
+      "changes": 18,
+      "bySeverity": {
+        "critical": 0,
+        "high": 11,
+        "medium": 0,
+        "low": 7
+      },
+      "servers": [
+        "context7",
+        "everything",
+        "fetch",
+        "filesystem",
+        "git",
+        "memory",
+        "time"
+      ]
+    },
     {
       "date": "2026-11-24",
       "changes": 6,
